@@ -427,19 +427,6 @@ struct RAWDeskApp: App {
                 )
                 .disabled(library?.selectionID == nil)
 
-                Button("People Workspace") {
-                    NotificationCenter.default.post(
-                        name: .rawDeskUICommand,
-                        object: RAWDeskUICommand
-                            .showPeople
-                    )
-                }
-                .keyboardShortcut(
-                    "3",
-                    modifiers: [.command]
-                )
-                .disabled(library == nil)
-
                 Button("Map Workspace") {
                     NotificationCenter.default.post(
                         name: .rawDeskUICommand,
@@ -448,7 +435,7 @@ struct RAWDeskApp: App {
                     )
                 }
                 .keyboardShortcut(
-                    "4",
+                    "3",
                     modifiers: [.command]
                 )
                 .disabled(library == nil)
@@ -707,6 +694,4 @@ extension Notification.Name {
     static let rawDeskExport = Notification.Name("rawdesk.export")
     static let rawDeskUICommand =
         Notification.Name("rawdesk.ui.command")
-    static let rawDeskPeopleAnalysisDidChange =
-        Notification.Name("rawdesk.people-analysis-did-change")
 }

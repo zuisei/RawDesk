@@ -85,7 +85,6 @@ struct LibrarySidebarView: View {
     }
 
     @ObservedObject var library: LibraryViewModel
-    @ObservedObject var people: PeopleViewModel
 
     private var savedLocationFolders:
         [SavedLocationFolderGroup] {
@@ -107,12 +106,6 @@ struct LibrarySidebarView: View {
             $0.name.localizedStandardCompare($1.name)
                 == .orderedAscending
         }
-    }
-
-    private var displayedPeopleCount: Int {
-        people.lastScanResult == nil
-            ? library.catalogSummary.peopleCount
-            : people.namedPersonCount
     }
 
     private var collectionTree: [CollectionSidebarNode] {
@@ -484,37 +477,6 @@ struct LibrarySidebarView: View {
             }
 
             Section("Folders") {
-                Button {
-                    library.showPeople()
-                    people.startIfNeeded()
-                } label: {
-                    HStack {
-                        Label("People", systemImage: "person.2")
-                        Spacer()
-                        if displayedPeopleCount > 0 {
-                            Text(
-                                "\(displayedPeopleCount)"
-                            )
-                            .font(
-                                RAWDeskTokens.Typography
-                                    .metadata
-                            )
-                            .foregroundStyle(
-                                RAWDeskTokens.ColorToken
-                                    .textSecondary
-                            )
-                            .monospacedDigit()
-                        }
-                        if library.workspaceMode == .people {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(RAWDeskTokens.ColorToken.selection)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("Show People")
-
                 Button {
                     library.showMap()
                 } label: {

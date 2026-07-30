@@ -104,9 +104,6 @@ public struct CatalogSummary: Equatable, Sendable {
     public var hashedPhotoCount: Int
     public var photoStackCount: Int
     public var stackedPhotoCount: Int
-    public var peopleCount: Int
-    public var faceCount: Int
-    public var unconfirmedFaceCount: Int
 
     public init(
         counts: [CatalogSmartCollection: Int] = [:],
@@ -118,10 +115,7 @@ public struct CatalogSummary: Equatable, Sendable {
         duplicateReclaimableBytes: Int64 = 0,
         hashedPhotoCount: Int = 0,
         photoStackCount: Int = 0,
-        stackedPhotoCount: Int = 0,
-        peopleCount: Int = 0,
-        faceCount: Int = 0,
-        unconfirmedFaceCount: Int = 0
+        stackedPhotoCount: Int = 0
     ) {
         self.counts = counts
         self.keywordCounts = keywordCounts
@@ -133,9 +127,6 @@ public struct CatalogSummary: Equatable, Sendable {
         self.hashedPhotoCount = hashedPhotoCount
         self.photoStackCount = photoStackCount
         self.stackedPhotoCount = stackedPhotoCount
-        self.peopleCount = peopleCount
-        self.faceCount = faceCount
-        self.unconfirmedFaceCount = unconfirmedFaceCount
     }
 
     public subscript(_ collection: CatalogSmartCollection) -> Int {

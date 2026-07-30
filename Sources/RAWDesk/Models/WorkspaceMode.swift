@@ -109,7 +109,6 @@ public enum WorkspaceDestination:
 {
     case library
     case develop
-    case people
     case map
 
     public var id: String { rawValue }
@@ -118,7 +117,6 @@ public enum WorkspaceDestination:
         switch self {
         case .library: return "Library"
         case .develop: return "Develop"
-        case .people: return "People"
         case .map: return "Map"
         }
     }
@@ -127,7 +125,6 @@ public enum WorkspaceDestination:
         switch self {
         case .library: return "rectangle.grid.2x2"
         case .develop: return "slider.horizontal.3"
-        case .people: return "person.2"
         case .map: return "map"
         }
     }
@@ -136,7 +133,6 @@ public enum WorkspaceDestination:
 enum RAWDeskUICommand: Sendable {
     case showLibrary
     case showDevelop
-    case showPeople
     case showMap
     case toggleSidebar
     case toggleInspector
@@ -151,7 +147,6 @@ public enum WorkspaceMode:
     Sendable
 {
     case library
-    case people
     case map
 
     public var id: String { rawValue }
@@ -159,7 +154,6 @@ public enum WorkspaceMode:
     public var name: String {
         switch self {
         case .library: return "Library"
-        case .people: return "People"
         case .map: return "Map"
         }
     }
@@ -167,7 +161,6 @@ public enum WorkspaceMode:
     public var systemImage: String {
         switch self {
         case .library: return "rectangle.grid.2x2"
-        case .people: return "person.2"
         case .map: return "map"
         }
     }

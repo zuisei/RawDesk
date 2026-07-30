@@ -387,22 +387,6 @@ struct AutoImportSettingsView: View {
                     .font(RAWDeskTokens.Typography.metadata)
                     .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
                 }
-
-                Divider()
-
-                Toggle(
-                    "Analyze people locally",
-                    isOn:
-                        $draft.analyzePeopleAfterImport
-                )
-                .accessibilityIdentifier(
-                    "Auto Import analyze people"
-                )
-                Text(
-                    "After verified ingest, RAWDesk can create reviewable face suggestions on this Mac. It never assigns a name or uploads a photo."
-                )
-                .font(RAWDeskTokens.Typography.metadata)
-                .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
             }
         }
     }

@@ -21,13 +21,11 @@ public actor AutoImportService {
 
     private let photoImportService: PhotoImportService
     private let catalogStore: CatalogStore
-    private let peopleAnalyzer: PeopleAnalyzer
     private let fileManager: FileManager
 
     public init(
         catalogStore: CatalogStore = .shared,
         photoImportService: PhotoImportService? = nil,
-        peopleAnalyzer: PeopleAnalyzer? = nil,
         fileManager: FileManager = .default
     ) {
         self.catalogStore = catalogStore
@@ -35,12 +33,6 @@ public actor AutoImportService {
             ?? PhotoImportService(
                 catalogStore: catalogStore,
                 fileManager: fileManager
-            )
-        self.peopleAnalyzer = peopleAnalyzer
-            ?? (
-                catalogStore === CatalogStore.shared
-                    ? PeopleAnalyzer.shared
-                    : PeopleAnalyzer(catalogStore: catalogStore)
             )
         self.fileManager = fileManager
     }
@@ -173,14 +165,6 @@ public actor AutoImportService {
             to: &importResult
         )
 
-        if settings.analyzePeopleAfterImport,
-           !importResult.wasCancelled {
-            importResult = await addingPeopleAnalysis(
-                to: importResult,
-                progress: progress
-            )
-        }
-
         var handledPaths = Set<String>()
         for transfer in importResult.transfers {
             handledPaths.insert(
@@ -289,47 +273,6 @@ public actor AutoImportService {
             warnings: warnings,
             failures: failures
         )
-    }
-
-    private func addingPeopleAnalysis(
-        to rawResult: PhotoImportResult,
-        progress: ProgressHandler?
-    ) async -> PhotoImportResult {
-        var result = rawResult
-        let photoIDs = Set(result.importedAssets.map(\.id))
-        guard !photoIDs.isEmpty else { return result }
-        do {
-            let scan = try await peopleAnalyzer.scan(
-                photoIDs: photoIDs
-            ) { peopleProgress in
-                await progress?(PhotoImportProgress(
-                    phase: .analyzingPeople,
-                    completed: peopleProgress.completed,
-                    total: peopleProgress.total,
-                    filename: peopleProgress.filename
-                ))
-            }
-            result.peopleAnalyzedCount = scan.analyzedCount
-            result.peopleCachedCount = scan.cachedCount
-            result.peopleFaceCount = scan.faces.count
-            result.peopleUnavailableCount =
-                scan.unavailablePaths.count
-            if !scan.unavailablePaths.isEmpty {
-                result.warnings.append(
-                    "\(scan.unavailablePaths.count) imported photo"
-                        + "\(scan.unavailablePaths.count == 1 ? "" : "s") could not be analyzed for People. The import itself completed safely."
-                )
-            }
-        } catch is CancellationError {
-            result.warnings.append(
-                "The import completed safely; local People analysis was stopped."
-            )
-        } catch {
-            result.warnings.append(
-                "The import completed safely, but local People analysis could not finish: \(error.localizedDescription)"
-            )
-        }
-        return result
     }
 
     private func applyInformation(

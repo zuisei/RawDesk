@@ -114,7 +114,7 @@ struct RAWWorkspaceSwitcher: View {
             minHeight: RAWDeskTokens.Size.iconTarget
         )
         .help(
-            "Switch between Library, Develop, People, and Map"
+            "Switch between Library, Develop, and Map"
         )
         .accessibilityIdentifier(
             "Workspace picker"
@@ -178,8 +178,6 @@ struct MainToolbar: ToolbarContent {
         Binding(
             get: {
                 switch library.workspaceMode {
-                case .people:
-                    return .people
                 case .map:
                     return .map
                 case .library:
@@ -262,8 +260,7 @@ struct MainToolbar: ToolbarContent {
             // S shortcut still toggles it (KeyboardHandler), and the active
             // proof profile is still reported on the control bar.
 
-            if library.workspaceMode != .people,
-               library.selectionID != nil {
+            if library.selectionID != nil {
                 Button(action: onExport) {
                     HStack(spacing: RAWDeskTokens.Spacing.xSmall) {
                         Image(systemName: "square.and.arrow.up")
@@ -334,9 +331,6 @@ struct MainToolbar: ToolbarContent {
             showDestination(.develop)
         }
         .disabled(library.selectionID == nil)
-        Button("People") {
-            showDestination(.people)
-        }
         Button("Map") {
             showDestination(.map)
         }
@@ -469,8 +463,6 @@ struct MainToolbar: ToolbarContent {
         case .develop:
             library.workspaceMode = .library
             photoWorkspaceMode = .develop
-        case .people:
-            library.workspaceMode = .people
         case .map:
             library.workspaceMode = .map
         }

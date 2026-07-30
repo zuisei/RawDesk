@@ -11,7 +11,6 @@ struct ContentView: View {
         PhotoViewerViewModel()
     @StateObject private var referenceViewer =
         PhotoViewerViewModel()
-    @StateObject private var people = PeopleViewModel()
     @State private var photoWorkspaceMode:
         PhotoWorkspaceMode = .library
     @AppStorage("rawdesk.ui.libraryDisplayMode")
@@ -45,16 +44,6 @@ struct ContentView: View {
     @AppStorage("rawdesk.ui.developFilmstripHeight")
     private var developFilmstripHeight =
         Double(RAWDeskTokens.Size.developFilmstrip)
-    @AppStorage("rawdesk.ui.peopleSidebarVisible")
-    private var isPeopleSidebarVisible = true
-    @AppStorage("rawdesk.ui.peopleSidebarWidth")
-    private var peopleSidebarWidth =
-        Double(RAWDeskTokens.Size.leftSidebar)
-    @AppStorage("rawdesk.ui.peopleInspectorVisible")
-    private var isPeopleInspectorVisible = true
-    @AppStorage("rawdesk.ui.peopleInspectorWidth")
-    private var peopleInspectorWidth =
-        Double(RAWDeskTokens.Size.rightInspector)
     @AppStorage("rawdesk.ui.mapSidebarVisible")
     private var isMapSidebarVisible = true
     @AppStorage("rawdesk.ui.mapSidebarWidth")
@@ -91,23 +80,6 @@ struct ContentView: View {
         Binding(
             get: { libraryDisplayMode },
             set: { libraryDisplayMode = $0 }
-        )
-    }
-
-    private var workspaceSearch: Binding<String> {
-        Binding(
-            get: {
-                library.workspaceMode == .people
-                    ? people.searchText
-                    : library.filter.searchText
-            },
-            set: { value in
-                if library.workspaceMode == .people {
-                    people.searchText = value
-                } else {
-                    library.filter.searchText = value
-                }
-            }
         )
     }
 
@@ -340,11 +312,9 @@ struct ContentView: View {
             )
         }
         .searchable(
-            text: workspaceSearch,
+            text: $library.filter.searchText,
             prompt:
-                library.workspaceMode == .people
-                    ? "Search people or filenames"
-                    : "Search filename, keyword, camera, or note"
+                "Search filename, keyword, camera, or note"
         )
     }
 
@@ -451,8 +421,6 @@ struct ContentView: View {
             return isLibrarySidebarVisible
         case .develop:
             return isDevelopSidebarVisible
-        case .people:
-            return isPeopleSidebarVisible
         case .map:
             return isMapSidebarVisible
         }
@@ -467,8 +435,6 @@ struct ContentView: View {
             return isLibraryInspectorVisible
         case .develop:
             return isDevelopInspectorVisible
-        case .people:
-            return isPeopleInspectorVisible
         case .map:
             return isMapInspectorVisible
         }
@@ -477,8 +443,6 @@ struct ContentView: View {
     private var activeDestination:
         WorkspaceDestination {
         switch library.workspaceMode {
-        case .people:
-            return .people
         case .map:
             return .map
         case .library:
@@ -497,8 +461,6 @@ struct ContentView: View {
                     return isLibrarySidebarVisible
                 case .develop:
                     return isDevelopSidebarVisible
-                case .people:
-                    return isPeopleSidebarVisible
                 case .map:
                     return isMapSidebarVisible
                 }
@@ -509,8 +471,6 @@ struct ContentView: View {
                     isLibrarySidebarVisible = value
                 case .develop:
                     isDevelopSidebarVisible = value
-                case .people:
-                    isPeopleSidebarVisible = value
                 case .map:
                     isMapSidebarVisible = value
                 }
@@ -527,8 +487,6 @@ struct ContentView: View {
                     return isLibraryInspectorVisible
                 case .develop:
                     return isDevelopInspectorVisible
-                case .people:
-                    return isPeopleInspectorVisible
                 case .map:
                     return isMapInspectorVisible
                 }
@@ -539,8 +497,6 @@ struct ContentView: View {
                     isLibraryInspectorVisible = value
                 case .develop:
                     isDevelopInspectorVisible = value
-                case .people:
-                    isPeopleInspectorVisible = value
                 case .map:
                     isMapInspectorVisible = value
                 }
@@ -557,8 +513,6 @@ struct ContentView: View {
                     return CGFloat(librarySidebarWidth)
                 case .develop:
                     return CGFloat(developSidebarWidth)
-                case .people:
-                    return CGFloat(peopleSidebarWidth)
                 case .map:
                     return CGFloat(mapSidebarWidth)
                 }
@@ -569,8 +523,6 @@ struct ContentView: View {
                     librarySidebarWidth = Double(value)
                 case .develop:
                     developSidebarWidth = Double(value)
-                case .people:
-                    peopleSidebarWidth = Double(value)
                 case .map:
                     mapSidebarWidth = Double(value)
                 }
@@ -587,8 +539,6 @@ struct ContentView: View {
                     return CGFloat(libraryInspectorWidth)
                 case .develop:
                     return CGFloat(developInspectorWidth)
-                case .people:
-                    return CGFloat(peopleInspectorWidth)
                 case .map:
                     return CGFloat(mapInspectorWidth)
                 }
@@ -599,8 +549,6 @@ struct ContentView: View {
                     libraryInspectorWidth = Double(value)
                 case .develop:
                     developInspectorWidth = Double(value)
-                case .people:
-                    peopleInspectorWidth = Double(value)
                 case .map:
                     mapInspectorWidth = Double(value)
                 }
@@ -620,9 +568,6 @@ struct ContentView: View {
         case .library:
             RAWLibrarySidebarView(library: library)
             .rawPanelBackground()
-        case .people:
-            PeopleSidebarView(people: people)
-                .rawPanelBackground()
         case .map:
             MapSidebarView(library: library)
                 .rawPanelBackground()
@@ -701,12 +646,6 @@ struct ContentView: View {
                 onCancelTool:
                     cancelDevelopTool
             )
-        case .people:
-            PeopleWorkspaceView(
-                people: people,
-                library: library
-            )
-            .frame(minWidth: 480)
         case .map:
             MapWorkspaceView(library: library)
                 .frame(minWidth: 480)
@@ -739,12 +678,6 @@ struct ContentView: View {
                 asset: library.selectedAsset,
                 onActivateTool:
                     activateDevelopTool
-            )
-            .rawPanelBackground()
-        case .people:
-            PeopleInspectorView(
-                people: people,
-                library: library
             )
             .rawPanelBackground()
         case .map:
@@ -866,10 +799,6 @@ struct ContentView: View {
                 (
                     "rawdesk.ui.developInspectorWidth",
                     { developInspectorWidth = $0 }
-                ),
-                (
-                    "rawdesk.ui.peopleInspectorWidth",
-                    { peopleInspectorWidth = $0 }
                 ),
                 (
                     "rawdesk.ui.mapInspectorWidth",
@@ -1039,11 +968,6 @@ struct ContentView: View {
         .onAppear {
             restoreWorkspace()
         }
-        .onChange(of: library.workspaceMode) { _, mode in
-            if mode == .people {
-                people.startIfNeeded()
-            }
-        }
         .onChange(of: activeDestination) {
             _, destination in
             announce(
@@ -1066,8 +990,7 @@ struct ContentView: View {
             handleUICommand(command)
         }
         .modifier(
-            PeopleAnalysisLifecycleModifier(
-                people: people,
+            ScenePhasePersistenceModifier(
                 library: library
             )
         )
@@ -1097,8 +1020,6 @@ struct ContentView: View {
             }
             library.workspaceMode = .library
             photoWorkspaceMode = .develop
-        case .people:
-            library.workspaceMode = .people
         case .map:
             library.workspaceMode = .map
         }
@@ -1112,8 +1033,6 @@ struct ContentView: View {
             showWorkspace(.library)
         case .showDevelop:
             showWorkspace(.develop)
-        case .showPeople:
-            showWorkspace(.people)
         case .showMap:
             showWorkspace(.map)
         case .toggleSidebar:
@@ -1609,7 +1528,6 @@ struct ContentView: View {
     }
 
     private func exportSelected() {
-        guard library.workspaceMode != .people else { return }
         guard let asset = library.selectedAsset, viewer.image != nil else {
             exportError = "No image is currently displayed."
             showExportError = true
@@ -2342,37 +2260,18 @@ struct DevelopFilmstripView: View {
     }
 }
 
-private struct PeopleAnalysisLifecycleModifier:
-    ViewModifier {
+/// Commits any debounced user-state writes as soon as the app stops being
+/// the active scene, so a quit or crash cannot lose the last few edits.
+private struct ScenePhasePersistenceModifier: ViewModifier {
     @Environment(\.scenePhase) private var scenePhase
-    @ObservedObject var people: PeopleViewModel
     @ObservedObject var library: LibraryViewModel
 
     func body(content: Content) -> some View {
         content
-            .onAppear {
-                people.startAutomaticAnalysisIfNeeded()
-            }
-            .onChange(
-                of: library.catalogSummary[.allPhotos]
-            ) { _, _ in
-                people.catalogDidChange()
-            }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
-                    people.applicationDidBecomeActive()
-                } else {
-                    people.applicationDidBecomeInactive()
+                if phase != .active {
                     library.flushPendingPersistence()
                 }
-            }
-            .onReceive(
-                NotificationCenter.default.publisher(
-                    for: .rawDeskPeopleAnalysisDidChange
-                )
-            ) { _ in
-                people.refreshFromCatalog()
-                library.refreshCatalogOverview()
             }
     }
 }

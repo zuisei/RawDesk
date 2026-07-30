@@ -20,7 +20,6 @@ struct PhotoImportView: View {
         PhotoImportTemplateRenderer.defaultFolderTemplate
     @State private var customFilenameTemplate =
         PhotoImportTemplateRenderer.defaultFilenameTemplate
-    @State private var analyzePeopleAfterImport = false
     @State private var preflight: PhotoImportPreflight?
     @State private var result: PhotoImportResult?
     @State private var errorMessage: String?
@@ -484,22 +483,6 @@ struct PhotoImportView: View {
                     "Uses the complete file contents, not the filename, to detect duplicates."
                 )
                 .disabled(isBusy)
-
-                Divider()
-
-                Toggle(
-                    "Analyze people locally after import",
-                    isOn: $analyzePeopleAfterImport
-                )
-                .disabled(isBusy)
-                .accessibilityIdentifier(
-                    "Analyze people after import"
-                )
-                Text(
-                    "Runs entirely on this Mac and creates reviewable face suggestions only. RAWDesk never assigns a name or uploads a photo."
-                )
-                .font(RAWDeskTokens.Typography.metadata)
-                .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
             }
         }
 
@@ -591,10 +574,6 @@ struct PhotoImportView: View {
                 VStack(alignment: .leading, spacing: RAWDeskTokens.Spacing.large) {
                     if let progress = library.importProgress {
                         progressSection(progress)
-                    }
-                    if let progress =
-                        library.importPeopleProgress {
-                        peopleProgressSection(progress)
                     }
                     if let errorMessage {
                         RAWInlineMessage(
@@ -817,47 +796,6 @@ struct PhotoImportView: View {
         .accessibilityIdentifier("Import progress")
     }
 
-    @ViewBuilder
-    private func peopleProgressSection(
-        _ progress: PeopleScanProgress
-    ) -> some View {
-        ImportPanelSection(
-            title: "Analyzing People Locally",
-            systemImage: "person.crop.rectangle.stack"
-        ) {
-            VStack(alignment: .leading, spacing: RAWDeskTokens.Spacing.small) {
-                HStack {
-                    Text(progress.filename ?? "Preparing…")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                    if progress.total > 0 {
-                        Text(
-                            "\(progress.completed) of \(progress.total)"
-                        )
-                        .font(RAWDeskTokens.Typography.metadata)
-                        .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
-                        .monospacedDigit()
-                    }
-                }
-                ProgressView(
-                    value: progress.total > 0
-                        ? Double(progress.completed)
-                            / Double(progress.total)
-                        : 0
-                )
-                Text(
-                    "\(progress.faceCount) face suggestion\(progress.faceCount == 1 ? "" : "s") found · no names assigned"
-                )
-                .font(RAWDeskTokens.Typography.metadata)
-                .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
-            }
-        }
-        .accessibilityIdentifier(
-            "Import People analysis progress"
-        )
-    }
-
     private func preflightSection(
         _ preview: PhotoImportPreflight
     ) -> some View {
@@ -1043,42 +981,6 @@ struct PhotoImportView: View {
                                 + "\(completed.organizedFolderCount == 1 ? "" : "s")",
                             systemImage: "calendar.badge.checkmark"
                         )
-                    }
-                    if completed.peopleAnalyzedCount > 0 {
-                        Label(
-                            "\(completed.peopleAnalyzedCount) analyzed locally for People",
-                            systemImage:
-                                "person.crop.rectangle.stack"
-                        )
-                    }
-                    if completed.peopleCachedCount > 0 {
-                        Label(
-                            "\(completed.peopleCachedCount) cached People result"
-                                + "\(completed.peopleCachedCount == 1 ? "" : "s") reused",
-                            systemImage: "bolt.horizontal.circle"
-                        )
-                    }
-                    if completed.peopleFaceCount > 0 {
-                        Label(
-                            "\(completed.peopleFaceCount) face suggestion"
-                                + "\(completed.peopleFaceCount == 1 ? "" : "s") ready",
-                            systemImage: "person.2"
-                        )
-                    } else if completed.peopleAnalyzedCount
-                                + completed.peopleCachedCount > 0,
-                              completed.peopleUnavailableCount == 0 {
-                        Label(
-                            "No face suggestions found",
-                            systemImage: "person.crop.circle.badge.xmark"
-                        )
-                    }
-                    if completed.peopleUnavailableCount > 0 {
-                        Label(
-                            "\(completed.peopleUnavailableCount) unavailable for People analysis",
-                            systemImage:
-                                "person.crop.circle.badge.exclamationmark"
-                        )
-                        .foregroundStyle(RAWDeskTokens.ColorToken.warning)
                     }
                     if completed.skippedDuplicateCount > 0 {
                         Label(
@@ -1494,9 +1396,7 @@ struct PhotoImportView: View {
             defer { isBusy = false }
             do {
                 result = try await library.executeImport(
-                    checked,
-                    analyzePeopleAfterImport:
-                        analyzePeopleAfterImport
+                    checked
                 )
             } catch is CancellationError {
                 cancellationMessage =

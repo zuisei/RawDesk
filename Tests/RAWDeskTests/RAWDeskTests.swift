@@ -2658,6 +2658,96 @@ final class CatalogStoreTests: XCTestCase {
         sqlite3_close_v2(database)
     }
 
+    /// The People feature was removed but its tables stay in the schema so
+    /// catalogs written by earlier versions still open and still migrate.
+    func testSchemaEightRestoresRetainedPeopleTables() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        var initialStore: CatalogStore? = CatalogStore(
+            directory: directory
+        )
+        let databaseURL = try XCTUnwrap(
+            initialStore?.databaseURL
+        )
+        initialStore = nil
+
+        var database: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open(databaseURL.path, &database),
+            SQLITE_OK
+        )
+        guard let database else {
+            return XCTFail("Could not open catalog")
+        }
+        XCTAssertEqual(
+            sqlite3_exec(
+                database,
+                """
+                DROP TABLE catalog_faces;
+                DROP TABLE catalog_face_analysis;
+                DROP TABLE catalog_people;
+                PRAGMA user_version = 8;
+                """,
+                nil,
+                nil,
+                nil
+            ),
+            SQLITE_OK
+        )
+        sqlite3_close_v2(database)
+
+        let migrated = CatalogStore(directory: directory)
+        XCTAssertTrue(try migrated.integrityCheck())
+
+        var reopened: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open(databaseURL.path, &reopened),
+            SQLITE_OK
+        )
+        guard let reopened else {
+            return XCTFail("Could not reopen catalog")
+        }
+        defer { sqlite3_close_v2(reopened) }
+        var statement: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_prepare_v2(
+                reopened,
+                "PRAGMA user_version",
+                -1,
+                &statement,
+                nil
+            ),
+            SQLITE_OK
+        )
+        XCTAssertEqual(sqlite3_step(statement), SQLITE_ROW)
+        XCTAssertEqual(sqlite3_column_int(statement, 0), 12)
+        sqlite3_finalize(statement)
+        statement = nil
+        XCTAssertEqual(
+            sqlite3_prepare_v2(
+                reopened,
+                """
+                SELECT COUNT(*)
+                FROM sqlite_master
+                WHERE type = 'table'
+                    AND name IN (
+                        'catalog_people',
+                        'catalog_faces',
+                        'catalog_face_analysis'
+                    )
+                """,
+                -1,
+                &statement,
+                nil
+            ),
+            SQLITE_OK
+        )
+        XCTAssertEqual(sqlite3_step(statement), SQLITE_ROW)
+        XCTAssertEqual(sqlite3_column_int(statement, 0), 3)
+        sqlite3_finalize(statement)
+    }
+
     func testSchemaSixMigratesColorLabelIndexAndBackfillsState()
         throws
     {
@@ -6599,6 +6689,9 @@ final class AutoImportTests: XCTestCase {
 
     func testLegacySettingsDefaultTemplatesAndRejectUnsafeTemplate()
         throws {
+        // `analyzePeopleAfterImport` belonged to the removed People feature.
+        // Settings files written by earlier versions still carry it, so
+        // decoding must ignore it rather than fail.
         let legacy = Data(
             """
             {
@@ -6608,6 +6701,7 @@ final class AutoImportTests: XCTestCase {
               "customFilenamePrefix": "Legacy",
               "sequenceStart": 17,
               "keywords": [],
+              "analyzePeopleAfterImport": true,
               "settleInterval": 2
             }
             """.utf8
@@ -6624,7 +6718,6 @@ final class AutoImportTests: XCTestCase {
             settings.customFilenameTemplate,
             PhotoImportTemplateRenderer.defaultFilenameTemplate
         )
-        XCTAssertFalse(settings.analyzePeopleAfterImport)
         XCTAssertEqual(settings.sourceHandling, .keepSource)
         XCTAssertTrue(settings.usesSequence)
 
@@ -6640,7 +6733,6 @@ final class AutoImportTests: XCTestCase {
         settings.fileNaming = .tokenTemplate
         settings.customFilenameTemplate =
             "{original}-{sequence:00000}"
-        settings.analyzePeopleAfterImport = true
         XCTAssertNil(settings.templateValidationMessage)
         XCTAssertTrue(settings.usesSequence)
         XCTAssertEqual(
@@ -7586,153 +7678,6 @@ final class AutoImportTests: XCTestCase {
             try catalog.entries(for: .allPhotos).map(\.path),
             [copied.path]
         )
-    }
-
-    func testAutoImportCanAnalyzeImportedPhotosLocallyForPeople()
-        async throws {
-        let base = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: base) }
-        let watched = base.appendingPathComponent("watched")
-        let destination = base.appendingPathComponent("destination")
-        let stores = base.appendingPathComponent("stores")
-        for directory in [watched, destination, stores] {
-            try FileManager.default.createDirectory(
-                at: directory,
-                withIntermediateDirectories: true
-            )
-        }
-        let source = watched.appendingPathComponent("portrait.jpg")
-        let sourceBytes = Data([9, 2, 6, 5, 3, 5])
-        try sourceBytes.write(to: source)
-
-        let catalog = CatalogStore(directory: stores)
-        let analyzer = PeopleAnalyzer(
-            catalogStore: catalog
-        ) { _ in
-            [
-                PeopleFaceDetection(
-                    boundingBox: CGRect(
-                        x: 0.2,
-                        y: 0.25,
-                        width: 0.3,
-                        height: 0.4
-                    ),
-                    confidence: 0.94,
-                    captureQuality: 0.83,
-                    featurePrintData: Data([4, 2])
-                ),
-            ]
-        }
-        let service = AutoImportService(
-            catalogStore: catalog,
-            peopleAnalyzer: analyzer
-        )
-        let progressRecorder = AutoImportProgressRecorder()
-        let result = try await service.run(
-            settings: AutoImportSettings(
-                enabled: true,
-                watchedFolderURL: watched,
-                destinationFolderURL: destination,
-                analyzePeopleAfterImport: true
-            ),
-            sourceURLs: [source]
-        ) { progress in
-            await progressRecorder.record(progress.phase)
-        }
-
-        XCTAssertEqual(result.importResult.importedCount, 1)
-        XCTAssertEqual(
-            result.importResult.peopleAnalyzedCount,
-            1
-        )
-        XCTAssertEqual(result.importResult.peopleCachedCount, 0)
-        XCTAssertEqual(result.importResult.peopleFaceCount, 1)
-        XCTAssertEqual(
-            result.importResult.peopleUnavailableCount,
-            0
-        )
-        XCTAssertEqual(result.removedSourceCount, 0)
-        XCTAssertTrue(
-            FileManager.default.fileExists(atPath: source.path)
-        )
-        XCTAssertEqual(try catalog.catalogFaces().count, 1)
-        XCTAssertEqual(try catalog.catalogPeople(), [])
-        XCTAssertEqual(try catalog.summary().faceCount, 1)
-        let progressPhases = await progressRecorder.phases
-        XCTAssertTrue(
-            progressPhases.contains(.analyzingPeople)
-        )
-        XCTAssertEqual(
-            try Data(
-                contentsOf:
-                    destination.appendingPathComponent(
-                        "portrait.jpg"
-                    )
-            ),
-            sourceBytes
-        )
-    }
-
-    func testPeopleAnalysisFailureNeverReversesSafeAutoImport()
-        async throws {
-        struct DetectionFailure: Error {}
-
-        let base = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: base) }
-        let watched = base.appendingPathComponent("watched")
-        let destination = base.appendingPathComponent("destination")
-        let stores = base.appendingPathComponent("stores")
-        for directory in [watched, destination, stores] {
-            try FileManager.default.createDirectory(
-                at: directory,
-                withIntermediateDirectories: true
-            )
-        }
-        let source = watched.appendingPathComponent("keep-import.jpg")
-        let bytes = Data([2, 7, 1, 8, 2, 8])
-        try bytes.write(to: source)
-
-        let catalog = CatalogStore(directory: stores)
-        let analyzer = PeopleAnalyzer(
-            catalogStore: catalog
-        ) { _ in
-            throw DetectionFailure()
-        }
-        let service = AutoImportService(
-            catalogStore: catalog,
-            peopleAnalyzer: analyzer
-        )
-        let result = try await service.run(
-            settings: AutoImportSettings(
-                enabled: true,
-                watchedFolderURL: watched,
-                destinationFolderURL: destination,
-                analyzePeopleAfterImport: true
-            ),
-            sourceURLs: [source]
-        )
-        let target = destination.appendingPathComponent(
-            "keep-import.jpg"
-        )
-
-        XCTAssertEqual(result.importResult.importedCount, 1)
-        XCTAssertEqual(result.removedSourceCount, 0)
-        XCTAssertTrue(result.failures.isEmpty)
-        XCTAssertEqual(
-            result.importResult.peopleUnavailableCount,
-            1
-        )
-        XCTAssertTrue(
-            result.warnings.contains {
-                $0.contains("completed safely")
-            }
-        )
-        XCTAssertTrue(
-            FileManager.default.fileExists(atPath: source.path)
-        )
-        XCTAssertEqual(try Data(contentsOf: target), bytes)
-        XCTAssertEqual(try catalog.catalogFaces(), [])
-        XCTAssertEqual(try catalog.summary()[.allPhotos], 1)
     }
 
     func testExactDuplicateIsRetainedForReview()
@@ -15788,84 +15733,6 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertEqual(library.catalogSummary[.allPhotos], 1)
         XCTAssertNil(library.importProgress)
     }
-
-    @MainActor
-    func testManualImportPeopleOptionCreatesSuggestionsWithoutNames()
-        async throws {
-        let base = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(
-                "rawdesk-library-import-people-\(UUID().uuidString)",
-                isDirectory: true
-            )
-        let photos = base.appendingPathComponent(
-            "photos",
-            isDirectory: true
-        )
-        let stores = base.appendingPathComponent(
-            "stores",
-            isDirectory: true
-        )
-        for directory in [photos, stores] {
-            try FileManager.default.createDirectory(
-                at: directory,
-                withIntermediateDirectories: true
-            )
-        }
-        defer { try? FileManager.default.removeItem(at: base) }
-        let photo = photos.appendingPathComponent("portrait.jpg")
-        try Data([4, 6, 2, 6, 4, 3]).write(to: photo)
-        let sourceHash = try FileContentHasher.sha256(for: photo)
-
-        let catalog = CatalogStore(directory: stores)
-        let analyzer = PeopleAnalyzer(
-            catalogStore: catalog
-        ) { _ in
-            [
-                PeopleFaceDetection(
-                    boundingBox: CGRect(
-                        x: 0.15,
-                        y: 0.2,
-                        width: 0.35,
-                        height: 0.45
-                    ),
-                    confidence: 0.96,
-                    captureQuality: 0.88,
-                    featurePrintData: Data([8, 8])
-                ),
-            ]
-        }
-        let library = LibraryViewModel(
-            userStateStore: UserStateStore(directory: stores),
-            recentStore: RecentFolderStore(directory: stores),
-            catalogStore: catalog,
-            peopleAnalyzer: analyzer
-        )
-        let checked = try await library.preflightImport(
-            PhotoImportRequest(
-                sourceURLs: [photo],
-                recursive: false
-            )
-        )
-        let result = try await library.executeImport(
-            checked,
-            analyzePeopleAfterImport: true
-        )
-
-        XCTAssertEqual(result.importedCount, 1)
-        XCTAssertEqual(result.peopleAnalyzedCount, 1)
-        XCTAssertEqual(result.peopleCachedCount, 0)
-        XCTAssertEqual(result.peopleFaceCount, 1)
-        XCTAssertEqual(result.peopleUnavailableCount, 0)
-        XCTAssertEqual(try catalog.catalogFaces().count, 1)
-        XCTAssertEqual(try catalog.catalogPeople(), [])
-        XCTAssertEqual(library.catalogSummary.faceCount, 1)
-        XCTAssertNil(library.importProgress)
-        XCTAssertNil(library.importPeopleProgress)
-        XCTAssertEqual(
-            try FileContentHasher.sha256(for: photo),
-            sourceHash
-        )
-    }
 }
 
 final class XMPSidecarServiceTests: XCTestCase {
@@ -16875,7 +16742,7 @@ final class LightroomWorkspaceUITests: XCTestCase {
     func testPrimaryWorkspaceDestinationsHaveClearNames() {
         XCTAssertEqual(
             WorkspaceDestination.allCases.map(\.name),
-            ["Library", "Develop", "People", "Map"]
+            ["Library", "Develop", "Map"]
         )
         XCTAssertEqual(
             PhotoWorkspaceMode.develop.systemImage,

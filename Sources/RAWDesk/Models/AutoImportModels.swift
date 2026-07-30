@@ -41,7 +41,6 @@ public struct AutoImportSettings: Codable, Equatable, Sendable {
     public var customFilenameTemplate: String
     public var keywords: [String]
     public var developmentPreset: DevelopmentPreset?
-    public var analyzePeopleAfterImport: Bool
     public var settleInterval: TimeInterval
 
     public init(
@@ -60,7 +59,6 @@ public struct AutoImportSettings: Codable, Equatable, Sendable {
             PhotoImportTemplateRenderer.defaultFilenameTemplate,
         keywords: [String] = [],
         developmentPreset: DevelopmentPreset? = nil,
-        analyzePeopleAfterImport: Bool = false,
         settleInterval: TimeInterval = Self.defaultSettleInterval
     ) {
         self.enabled = enabled
@@ -75,8 +73,6 @@ public struct AutoImportSettings: Codable, Equatable, Sendable {
         self.customFilenameTemplate = customFilenameTemplate
         self.keywords = keywords
         self.developmentPreset = developmentPreset
-        self.analyzePeopleAfterImport =
-            analyzePeopleAfterImport
         self.settleInterval = settleInterval
         self = normalized
     }
@@ -198,7 +194,6 @@ public struct AutoImportSettings: Codable, Equatable, Sendable {
         case customFilenameTemplate
         case keywords
         case developmentPreset
-        case analyzePeopleAfterImport
         case settleInterval
     }
 
@@ -255,11 +250,6 @@ public struct AutoImportSettings: Codable, Equatable, Sendable {
                 DevelopmentPreset.self,
                 forKey: .developmentPreset
             ),
-            analyzePeopleAfterImport:
-                try container.decodeIfPresent(
-                    Bool.self,
-                    forKey: .analyzePeopleAfterImport
-                ) ?? false,
             settleInterval: try container.decodeIfPresent(
                 TimeInterval.self,
                 forKey: .settleInterval
@@ -306,10 +296,6 @@ public struct AutoImportSettings: Codable, Equatable, Sendable {
         try container.encodeIfPresent(
             developmentPreset,
             forKey: .developmentPreset
-        )
-        try container.encode(
-            analyzePeopleAfterImport,
-            forKey: .analyzePeopleAfterImport
         )
         try container.encode(
             settleInterval,

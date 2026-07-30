@@ -109,8 +109,6 @@ public final class LibraryViewModel: ObservableObject {
     @Published public private(set) var activeColorLabelSetID:
         PhotoColorLabelSet.ID = PhotoColorLabelSet.standardID
     @Published public private(set) var importProgress: PhotoImportProgress?
-    @Published public private(set) var importPeopleProgress:
-        PeopleScanProgress?
     @Published public private(set) var autoImportProgress:
         PhotoImportProgress?
     @Published public private(set) var autoImportSettings =
@@ -179,7 +177,6 @@ public final class LibraryViewModel: ObservableObject {
     private let watchedFolderMonitor: WatchedFolderMonitor
     private let catalogDuplicateScanner: CatalogDuplicateScanner
     private let assistedCullingAnalyzer: AssistedCullingAnalyzer
-    private let peopleAnalyzer: PeopleAnalyzer
     private var scanTask: Task<Void, Never>?
     private var catalogTask: Task<Void, Never>?
     private var duplicateScanTask: Task<Void, Never>?
@@ -222,7 +219,6 @@ public final class LibraryViewModel: ObservableObject {
             SavedMapLocationStore = .shared,
         catalogStore: CatalogStore = .shared,
         assistedCullingAnalyzer: AssistedCullingAnalyzer? = nil,
-        peopleAnalyzer: PeopleAnalyzer? = nil,
         autoImportService: AutoImportService? = nil,
         watchedFolderMonitor: WatchedFolderMonitor =
             WatchedFolderMonitor()
@@ -233,13 +229,6 @@ public final class LibraryViewModel: ObservableObject {
         self.autoImportSettingsStore = autoImportSettingsStore
         self.savedMapLocationStore = savedMapLocationStore
         self.catalogStore = catalogStore
-        let resolvedPeopleAnalyzer = peopleAnalyzer
-            ?? (
-                catalogStore === CatalogStore.shared
-                    ? PeopleAnalyzer.shared
-                    : PeopleAnalyzer(catalogStore: catalogStore)
-            )
-        self.peopleAnalyzer = resolvedPeopleAnalyzer
         photoImportService = PhotoImportService(
             catalogStore: catalogStore
         )
@@ -251,8 +240,7 @@ public final class LibraryViewModel: ObservableObject {
         self.autoImportService = autoImportService
             ?? AutoImportService(
                 catalogStore: catalogStore,
-                photoImportService: photoImportService,
-                peopleAnalyzer: resolvedPeopleAnalyzer
+                photoImportService: photoImportService
             )
         self.watchedFolderMonitor = watchedFolderMonitor
         let colorLabelLibrary = colorLabelSetStore.load()
@@ -476,9 +464,6 @@ public final class LibraryViewModel: ObservableObject {
         }
         if surveyState != nil {
             return "Survey"
-        }
-        if workspaceMode == .people {
-            return "People"
         }
         return activePhotoCollection?.name
             ?? activeSavedCollection?.name
@@ -864,13 +849,6 @@ public final class LibraryViewModel: ObservableObject {
                 result.retryURLs
             )
             applyAutoImportResult(result)
-            if autoImportSettings.analyzePeopleAfterImport,
-               result.importResult.importedCount > 0 {
-                NotificationCenter.default.post(
-                    name: .rawDeskPeopleAnalysisDidChange,
-                    object: nil
-                )
-            }
             advanceAutoImportSequence(
                 processedCandidateCount: ready.count,
                 importedCount:
@@ -940,19 +918,11 @@ public final class LibraryViewModel: ObservableObject {
         switch progress.phase {
         case .discovering, .hashing:
             phase = .checking
-        case .copying, .cataloging, .removingSources,
-             .analyzingPeople:
+        case .copying, .cataloging, .removingSources:
             phase = .importing
         }
-        let message: String
-        if progress.phase == .analyzingPeople {
-            message = progress.filename.map {
-                "Analyzing \($0) locally for People."
-            } ?? progress.phase.name
-        } else {
-            message = progress.filename
-                ?? progress.phase.name
-        }
+        let message = progress.filename
+            ?? progress.phase.name
         autoImportStatus = AutoImportStatus(
             phase: phase,
             message: message,
@@ -971,25 +941,7 @@ public final class LibraryViewModel: ObservableObject {
         let noun = result.importedCount == 1
             ? "photo"
             : "photos"
-        var message =
-            "\(result.importedCount) \(noun) imported safely."
-        guard autoImportSettings.analyzePeopleAfterImport,
-              result.importedCount > 0 else {
-            return message
-        }
-        if result.peopleUnavailableCount > 0 {
-            message +=
-                " People analysis needs attention for \(result.peopleUnavailableCount)."
-        } else if result.peopleFaceCount > 0 {
-            let faceNoun = result.peopleFaceCount == 1
-                ? "face suggestion"
-                : "face suggestions"
-            message +=
-                " \(result.peopleFaceCount) \(faceNoun) ready in People."
-        } else {
-            message += " Local People analysis found no faces."
-        }
-        return message
+        return "\(result.importedCount) \(noun) imported safely."
     }
 
     private func autoImportWatchingMessage(
@@ -1077,8 +1029,7 @@ public final class LibraryViewModel: ObservableObject {
     }
 
     public func executeImport(
-        _ preflight: PhotoImportPreflight,
-        analyzePeopleAfterImport: Bool = false
+        _ preflight: PhotoImportPreflight
     ) async throws -> PhotoImportResult {
         importProgress = PhotoImportProgress(
             phase: preflight.request.mode.requiresDestination
@@ -1087,12 +1038,10 @@ public final class LibraryViewModel: ObservableObject {
             completed: 0,
             total: preflight.importableCount
         )
-        importPeopleProgress = nil
         defer {
             importProgress = nil
-            importPeopleProgress = nil
         }
-        var result = try await photoImportService.execute(
+        let result = try await photoImportService.execute(
             preflight,
             colorLabelSet: activeColorLabelSet
         ) {
@@ -1101,64 +1050,11 @@ public final class LibraryViewModel: ObservableObject {
         }
         applyImportResult(result)
         importProgress = nil
-        if analyzePeopleAfterImport {
-            result = await addingPeopleAnalysis(
-                to: result
-            )
-        }
         return result
     }
 
     private func setImportProgress(_ progress: PhotoImportProgress) {
         importProgress = progress
-    }
-
-    private func setImportPeopleProgress(
-        _ progress: PeopleScanProgress
-    ) {
-        importPeopleProgress = progress
-    }
-
-    private func addingPeopleAnalysis(
-        to rawResult: PhotoImportResult
-    ) async -> PhotoImportResult {
-        var result = rawResult
-        let photoIDs = Set(result.importedAssets.map(\.id))
-        guard !photoIDs.isEmpty else { return result }
-        do {
-            let scan = try await peopleAnalyzer.scan(
-                photoIDs: photoIDs
-            ) { [weak self] progress in
-                await self?.setImportPeopleProgress(
-                    progress
-                )
-            }
-            result.peopleAnalyzedCount = scan.analyzedCount
-            result.peopleCachedCount = scan.cachedCount
-            result.peopleFaceCount = scan.faces.count
-            result.peopleUnavailableCount =
-                scan.unavailablePaths.count
-            if !scan.unavailablePaths.isEmpty {
-                result.warnings.append(
-                    "\(scan.unavailablePaths.count) imported photo"
-                        + "\(scan.unavailablePaths.count == 1 ? "" : "s") could not be analyzed for People. The import itself completed safely."
-                )
-            }
-            refreshCatalogSummary()
-            NotificationCenter.default.post(
-                name: .rawDeskPeopleAnalysisDidChange,
-                object: nil
-            )
-        } catch is CancellationError {
-            result.warnings.append(
-                "The import completed safely; local People analysis was stopped."
-            )
-        } catch {
-            result.warnings.append(
-                "The import completed safely, but local People analysis could not finish: \(error.localizedDescription)"
-            )
-        }
-        return result
     }
 
     public func openFolderPicker() {
@@ -4907,10 +4803,6 @@ public final class LibraryViewModel: ObservableObject {
             showCatalog(.allPhotos)
         }
         refreshLocationMetadataIfNeeded()
-    }
-
-    public func showPeople() {
-        workspaceMode = .people
     }
 
     public func showCatalogPhoto(id: PhotoAsset.ID) {

@@ -439,7 +439,6 @@ public enum PhotoImportProgressPhase: String, Equatable, Sendable {
     case copying
     case cataloging
     case removingSources
-    case analyzingPeople
 
     public var name: String {
         switch self {
@@ -448,7 +447,6 @@ public enum PhotoImportProgressPhase: String, Equatable, Sendable {
         case .copying: return "Copying and verifying"
         case .cataloging: return "Updating catalog"
         case .removingSources: return "Moving verified sources to Trash"
-        case .analyzingPeople: return "Analyzing people locally"
         }
     }
 }
@@ -487,10 +485,6 @@ public struct PhotoImportResult: Equatable, Sendable {
     public var reusedDestinationCount: Int
     public var renamedCount: Int
     public var organizedFolderCount: Int
-    public var peopleAnalyzedCount: Int
-    public var peopleCachedCount: Int
-    public var peopleFaceCount: Int
-    public var peopleUnavailableCount: Int
     public var skippedDuplicateCount: Int
     public var unsupportedCount: Int
     public var duplicateMatches: [PhotoImportDuplicateMatch]
@@ -508,10 +502,6 @@ public struct PhotoImportResult: Equatable, Sendable {
         reusedDestinationCount: Int = 0,
         renamedCount: Int = 0,
         organizedFolderCount: Int = 0,
-        peopleAnalyzedCount: Int = 0,
-        peopleCachedCount: Int = 0,
-        peopleFaceCount: Int = 0,
-        peopleUnavailableCount: Int = 0,
         skippedDuplicateCount: Int = 0,
         unsupportedCount: Int = 0,
         duplicateMatches: [PhotoImportDuplicateMatch] = [],
@@ -529,11 +519,6 @@ public struct PhotoImportResult: Equatable, Sendable {
         self.reusedDestinationCount = reusedDestinationCount
         self.renamedCount = renamedCount
         self.organizedFolderCount = organizedFolderCount
-        self.peopleAnalyzedCount = peopleAnalyzedCount
-        self.peopleCachedCount = peopleCachedCount
-        self.peopleFaceCount = peopleFaceCount
-        self.peopleUnavailableCount =
-            peopleUnavailableCount
         self.skippedDuplicateCount = skippedDuplicateCount
         self.unsupportedCount = unsupportedCount
         self.duplicateMatches = duplicateMatches
