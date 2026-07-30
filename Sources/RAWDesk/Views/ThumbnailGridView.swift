@@ -143,21 +143,22 @@ struct ThumbnailGridView: View {
         )
         .frame(height: cellSize + 22)
         .contentShape(Rectangle())
-        .gesture(
-            TapGesture(count: 2)
-                .exclusively(
-                    before: TapGesture(count: 1)
-                )
-                .onEnded { result in
-                    switch result {
-                    case .first:
-                        selectThumbnail(asset.id)
-                        onOpenLoupe(asset.id)
-                    case .second:
-                        selectThumbnail(asset.id)
-                    }
-                }
-        )
+        // Two independent recognizers, not an ExclusiveGesture. In an exclusive
+        // pair the single tap is only evaluated once the double tap *fails*,
+        // and a two-count tap cannot fail until the system double-click
+        // interval elapses — so selecting a photo took half a second or more,
+        // while the filmstrip (a plain tap gesture) responded immediately.
+        .onTapGesture(count: 2) {
+            // Plain select: the single-tap handler may already have run for
+            // this click, and re-applying a modifier-aware selection would
+            // toggle the photo back out of the selection on a shift- or
+            // command-double-click.
+            library.select(asset.id)
+            onOpenLoupe(asset.id)
+        }
+        .onTapGesture {
+            selectThumbnail(asset.id)
+        }
         .contextMenu {
             thumbnailContextMenu(for: asset)
         }

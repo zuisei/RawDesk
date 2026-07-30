@@ -53,9 +53,13 @@ struct ThumbnailCellView: View {
             ImageLoadState,
             RAWImageLoader.DecodeSource?
         ) -> Void
-    var onQuickPick: () -> Void = {}
-    var onQuickReject: () -> Void = {}
-    var onQuickRating: (Int) -> Void = { _ in }
+    // Optional, so a host that does not wire them does not get an overlay of
+    // buttons that silently do nothing. Only the grid supplies these; every
+    // filmstrip previously showed a hover cluster with "Pick photo (P)"
+    // tooltips that were inert.
+    var onQuickPick: (() -> Void)?
+    var onQuickReject: (() -> Void)?
+    var onQuickRating: ((Int) -> Void)?
 
     @State private var image: NSImage?
     @State private var loadState: ImageLoadState = .idle
@@ -396,7 +400,11 @@ struct ThumbnailCellView: View {
 
     @ViewBuilder
     private var quickActionLayer: some View {
-        if isHovering, !asset.catalogMissing {
+        if isHovering,
+           !asset.catalogMissing,
+           let onQuickPick,
+           let onQuickReject,
+           let onQuickRating {
             VStack {
                 Spacer(minLength: 0)
                 HStack(spacing: RAWDeskTokens.Spacing.xSmall) {

@@ -1059,7 +1059,6 @@ struct RAWInspectorSection<Content: View>: View {
     var isResetDisabled = false
     var onReset: (() -> Void)?
     var onSolo: (() -> Void)?
-    var onActivate: (() -> Void)?
     var sectionEnabled: Binding<Bool>?
     @ViewBuilder let content: () -> Content
 
@@ -1069,15 +1068,16 @@ struct RAWInspectorSection<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: RAWDeskTokens.Spacing.small) {
+                // Disclosure only. This header used to also enter a canvas tool
+                // mode when the section was expanded — so opening Crop &
+                // Geometry to read a number put the canvas into crop editing,
+                // and collapsing it again did not undo that. Tools are entered
+                // from the tool row and the section's own buttons.
                 Button {
                     if NSEvent.modifierFlags.contains(.option),
                        let onSolo {
                         onSolo()
-                        onActivate?()
                     } else {
-                        if !isExpanded {
-                            onActivate?()
-                        }
                         setExpanded(!isExpanded)
                     }
                 } label: {
@@ -1335,6 +1335,10 @@ struct RAWSliderRow: View {
     var format: (Double) -> String = {
         String(format: "%+.2f", $0)
     }
+    /// Inverse of `format`. Required whenever `format` scales the value for
+    /// display — a row showing "4%" for 0.04 must divide by 100 on the way
+    /// back, or typing "4" is read as 4.0 and clamps to the slider's maximum.
+    var parse: ((String) -> Double?)?
 
     @State private var textValue = ""
     @State private var isSliderEditing = false
@@ -1479,6 +1483,26 @@ struct RAWSliderRow: View {
                             commitTextValue()
                         }
                     }
+                    // The number is shown through the field's own text, kept
+                    // in step with the slider. It used to be shown through the
+                    // *placeholder*, which only surfaces while the text is
+                    // empty — so the moment a field was typed into once, its
+                    // text stayed non-empty and the readout froze at whatever
+                    // was committed while the slider carried on moving.
+                    // Guarded on focus so a live edit is never overwritten.
+                    .onChange(of: value, initial: true) { _, updated in
+                        guard !textFieldFocused else { return }
+                        textValue =
+                            isMixed ? "" : format(updated)
+                    }
+                    // Same class of bug for the mixed marker: going from a
+                    // single selection to a mixed one has to clear the text,
+                    // or the previous photo's number stays on screen instead
+                    // of the em dash.
+                    .onChange(of: isMixed, initial: true) { _, mixed in
+                        guard !textFieldFocused else { return }
+                        textValue = mixed ? "" : format(value)
+                    }
                     .accessibilityValue(
                         fieldPresentation
                             .accessibilityValue
@@ -1488,11 +1512,22 @@ struct RAWSliderRow: View {
         }
     }
 
+    /// Reads back a value shown in the slider's own units. Rows whose formatter
+    /// scales the number for display must supply a matching `parse`, or typing
+    /// the number the row is showing sets a different value than the one shown.
+    static func defaultParse(_ text: String) -> Double? {
+        Double(
+            text
+                .replacingOccurrences(of: "%", with: "")
+                .replacingOccurrences(of: "°", with: "")
+                .trimmingCharacters(in: .whitespaces)
+        )
+    }
+
     private func commitTextValue() {
-        let sanitized = textValue
-            .replacingOccurrences(of: "%", with: "")
-            .replacingOccurrences(of: "°", with: "")
-        guard let parsed = Double(sanitized) else {
+        guard let parsed =
+            (parse ?? RAWSliderRow.defaultParse)(textValue)
+        else {
             textValue = format(value)
             return
         }

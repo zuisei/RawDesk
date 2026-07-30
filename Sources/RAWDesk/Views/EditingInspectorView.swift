@@ -748,7 +748,8 @@ struct EditingInspectorView: View {
                                         range: 0.005...0.25,
                                         step: 0.005,
                                         resetValue: 0.04,
-                                        format: percentFormat
+                                        format: percentFormat,
+                                        parse: percentParse
                                     )
                                     MaskValueSlider(
                                         title: "Feather",
@@ -760,7 +761,8 @@ struct EditingInspectorView: View {
                                         range: 0...1,
                                         step: 0.01,
                                         resetValue: 0.65,
-                                        format: percentFormat
+                                        format: percentFormat,
+                                        parse: percentParse
                                     )
                                     MaskValueSlider(
                                         title: "Flow",
@@ -772,7 +774,8 @@ struct EditingInspectorView: View {
                                         range: 0...1,
                                         step: 0.01,
                                         resetValue: 1,
-                                        format: percentFormat
+                                        format: percentFormat,
+                                        parse: percentParse
                                     )
 
                                     HStack {
@@ -804,7 +807,8 @@ struct EditingInspectorView: View {
                                             range: 0...1,
                                             step: 0.01,
                                             resetValue: 0.5,
-                                            format: percentFormat
+                                            format: percentFormat,
+                                            parse: percentParse
                                         )
                                         MaskValueSlider(
                                             title: "Vertical",
@@ -816,7 +820,8 @@ struct EditingInspectorView: View {
                                             range: 0...1,
                                             step: 0.01,
                                             resetValue: 0.5,
-                                            format: percentFormat
+                                            format: percentFormat,
+                                            parse: percentParse
                                         )
                                         MaskValueSlider(
                                             title: "Size",
@@ -828,7 +833,8 @@ struct EditingInspectorView: View {
                                             range: 0.02...1.5,
                                             step: 0.01,
                                             resetValue: 0.55,
-                                            format: percentFormat
+                                            format: percentFormat,
+                                            parse: percentParse
                                         )
                                         MaskValueSlider(
                                             title: "Feather",
@@ -840,7 +846,8 @@ struct EditingInspectorView: View {
                                             range: 0...1,
                                             step: 0.01,
                                             resetValue: 0.5,
-                                            format: percentFormat
+                                            format: percentFormat,
+                                            parse: percentParse
                                         )
                                         if selectedMask.kind == .linear {
                                             MaskValueSlider(
@@ -1171,7 +1178,8 @@ struct EditingInspectorView: View {
                                     range: 0...1,
                                     step: 0.01,
                                     resetValue: 0.5,
-                                    format: percentFormat
+                                    format: percentFormat,
+                                    parse: percentParse
                                 )
                                 MaskValueSlider(
                                     title: "Vertical",
@@ -1183,7 +1191,8 @@ struct EditingInspectorView: View {
                                     range: 0...1,
                                     step: 0.01,
                                     resetValue: 0.5,
-                                    format: percentFormat
+                                    format: percentFormat,
+                                    parse: percentParse
                                 )
 
                                 Text("Source")
@@ -1199,7 +1208,8 @@ struct EditingInspectorView: View {
                                     range: 0...1,
                                     step: 0.01,
                                     resetValue: 0.36,
-                                    format: percentFormat
+                                    format: percentFormat,
+                                    parse: percentParse
                                 )
                                 MaskValueSlider(
                                     title: "Vertical",
@@ -1211,7 +1221,8 @@ struct EditingInspectorView: View {
                                     range: 0...1,
                                     step: 0.01,
                                     resetValue: 0.42,
-                                    format: percentFormat
+                                    format: percentFormat,
+                                    parse: percentParse
                                 )
 
                                 MaskValueSlider(
@@ -1224,7 +1235,8 @@ struct EditingInspectorView: View {
                                     range: 0.005...0.25,
                                     step: 0.005,
                                     resetValue: 0.06,
-                                    format: percentFormat
+                                    format: percentFormat,
+                                    parse: percentParse
                                 )
                                 MaskValueSlider(
                                     title: "Feather",
@@ -1236,7 +1248,8 @@ struct EditingInspectorView: View {
                                     range: 0...1,
                                     step: 0.01,
                                     resetValue: 0.65,
-                                    format: percentFormat
+                                    format: percentFormat,
+                                    parse: percentParse
                                 )
                                 MaskValueSlider(
                                     title: "Opacity",
@@ -1248,7 +1261,8 @@ struct EditingInspectorView: View {
                                     range: 0...1,
                                     step: 0.01,
                                     resetValue: 1,
-                                    format: percentFormat
+                                    format: percentFormat,
+                                    parse: percentParse
                                 )
 
                                 Button(role: .destructive) {
@@ -1506,7 +1520,13 @@ struct EditingInspectorView: View {
 
                     adjustmentGroup("Crop & Geometry", isExpanded: $geometryExpanded) {
                         Button {
-                            viewer.setCropEditing(true)
+                            // Through the shared entry point, not straight at
+                            // the viewer: `activateDevelopTool` is what
+                            // snapshots the adjustments Escape restores and
+                            // announces the tool. Starting the crop tool from
+                            // here used to skip both, so cancelling reverted
+                            // nothing.
+                            onActivateTool(.crop)
                         } label: {
                             Label(
                                 viewer.isCropEditing ? "Crop Tool Active" : "Edit Crop on Photo",
@@ -3341,7 +3361,8 @@ struct EditingInspectorView: View {
                     range: 0.005...0.25,
                     step: 0.005,
                     resetValue: 0.04,
-                    format: percentFormat
+                    format: percentFormat,
+                    parse: percentParse
                 )
                 MaskValueSlider(
                     title: "Feather",
@@ -3354,7 +3375,8 @@ struct EditingInspectorView: View {
                     range: 0...1,
                     step: 0.01,
                     resetValue: 0.65,
-                    format: percentFormat
+                    format: percentFormat,
+                    parse: percentParse
                 )
                 MaskValueSlider(
                     title: "Flow",
@@ -3367,7 +3389,8 @@ struct EditingInspectorView: View {
                     range: 0...1,
                     step: 0.01,
                     resetValue: 1,
-                    format: percentFormat
+                    format: percentFormat,
+                    parse: percentParse
                 )
 
                 HStack {
@@ -3405,7 +3428,8 @@ struct EditingInspectorView: View {
                     range: 0...1,
                     step: 0.01,
                     resetValue: 0.5,
-                    format: percentFormat
+                    format: percentFormat,
+                    parse: percentParse
                 )
                 MaskValueSlider(
                     title: "Vertical",
@@ -3418,7 +3442,8 @@ struct EditingInspectorView: View {
                     range: 0...1,
                     step: 0.01,
                     resetValue: 0.5,
-                    format: percentFormat
+                    format: percentFormat,
+                    parse: percentParse
                 )
                 MaskValueSlider(
                     title: "Size",
@@ -3431,7 +3456,8 @@ struct EditingInspectorView: View {
                     range: 0.02...1.5,
                     step: 0.01,
                     resetValue: 0.55,
-                    format: percentFormat
+                    format: percentFormat,
+                    parse: percentParse
                 )
                 MaskValueSlider(
                     title: "Feather",
@@ -3444,7 +3470,8 @@ struct EditingInspectorView: View {
                     range: 0...1,
                     step: 0.01,
                     resetValue: 0.5,
-                    format: percentFormat
+                    format: percentFormat,
+                    parse: percentParse
                 )
                 if operation.kind == .linear {
                     MaskValueSlider(
@@ -4141,6 +4168,14 @@ struct EditingInspectorView: View {
 
     private var percentFormat: (Double) -> String {
         { "\(Int(($0 * 100).rounded()))%" }
+    }
+
+    /// Inverse of `percentFormat`. Declared beside it so the two cannot drift:
+    /// the display multiplies by 100, so reading back must divide by it.
+    private var percentParse: (String) -> Double? {
+        { text in
+            RAWSliderRow.defaultParse(text).map { $0 / 100 }
+        }
     }
 
     private func selectedMaskPrimaryOperation(
@@ -5578,13 +5613,6 @@ struct EditingInspectorView: View {
                 collapseAllAdjustmentSections()
                 isExpanded.wrappedValue = true
             },
-            onActivate:
-                interactiveTool(for: title).map {
-                    tool in
-                    {
-                        onActivateTool(tool)
-                    }
-                },
             sectionEnabled: sectionEnabled
         ) {
             VStack(
@@ -5614,21 +5642,6 @@ struct EditingInspectorView: View {
         case "Effects": return .effects
         case "Detail": return .detail
         default: return nil
-        }
-    }
-
-    private func interactiveTool(
-        for title: String
-    ) -> DevelopCanvasTool? {
-        switch title {
-        case "Masks": return .mask
-        case "Remove": return .remove
-        case "Crop & Geometry":
-            return .crop
-        case "Point Color":
-            return .pointColor
-        default:
-            return nil
         }
     }
 
@@ -5965,6 +5978,11 @@ private struct CropPositionSlider: View {
             isMixed: value.isMixed,
             format: {
                 "\(Int(($0 * 100).rounded()))%"
+            },
+            // The display scales by 100, so reading back has to divide by it.
+            parse: { text in
+                RAWSliderRow.defaultParse(text)
+                    .map { $0 / 100 }
             }
         )
         .disabled(!isEnabled)
@@ -6049,6 +6067,8 @@ private struct MaskValueSlider: View {
     let step: Double
     let resetValue: Double
     let format: (Double) -> String
+    /// Supplied whenever `format` scales the displayed number.
+    var parse: ((String) -> Double?)?
 
     var body: some View {
         RAWSliderRow(
@@ -6058,7 +6078,8 @@ private struct MaskValueSlider: View {
             step: step,
             resetValue: resetValue,
             isMixed: value.isMixed,
-            format: format
+            format: format,
+            parse: parse
         )
         .accessibilityLabel(
             "\(title) mask geometry"

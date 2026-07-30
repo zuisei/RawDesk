@@ -722,6 +722,39 @@ final class UIStateContractTests: XCTestCase {
         )
     }
 
+    /// A slider row's formatter and parser must be inverses. Rows that show a
+    /// 0…1 value as a percent used the shared parser, which reads the number in
+    /// the slider's own units — so typing back the "4%" the row was showing
+    /// meant 4.0, and clamped a 0.005…0.25 brush size straight to its maximum.
+    func testPercentSliderParsesBackTheValueItDisplays() {
+        let format: (Double) -> String = {
+            "\(Int(($0 * 100).rounded()))%"
+        }
+        let parse: (String) -> Double? = { text in
+            RAWSliderRow.defaultParse(text).map { $0 / 100 }
+        }
+
+        for value in [0.005, 0.04, 0.25, 0.5, 1.0] {
+            let shown = format(value)
+            let readBack = try? XCTUnwrap(parse(shown))
+            XCTAssertEqual(
+                readBack ?? .nan,
+                value,
+                accuracy: 0.005,
+                "\(shown) must read back as \(value)"
+            )
+        }
+
+        // The shared parser is still correct for rows in their own units.
+        XCTAssertEqual(
+            RAWSliderRow.defaultParse("-0.35"),
+            -0.35
+        )
+        XCTAssertEqual(RAWSliderRow.defaultParse("12%"), 12)
+        XCTAssertEqual(RAWSliderRow.defaultParse("45°"), 45)
+        XCTAssertNil(RAWSliderRow.defaultParse("abc"))
+    }
+
     func testActiveSliderIsTheOnlyOneAccented() {
         let active = RAWSliderPresentation(
             value: -0.35,
