@@ -147,7 +147,6 @@ struct PeopleSidebarView: View {
         }
         .listStyle(.sidebar)
         .rawPanelScrollBackground()
-        .navigationTitle("People")
     }
 
     private func categoryRow(
@@ -327,7 +326,6 @@ struct MapSidebarView: View {
         }
         .listStyle(.sidebar)
         .rawPanelScrollBackground()
-        .navigationTitle("Map")
     }
 
     private func scopeRow(

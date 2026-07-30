@@ -13448,6 +13448,97 @@ final class LibraryViewModelTests: XCTestCase {
         )
     }
 
+    /// `filtered` memoises a full filter-and-sort of the catalogue. The cache
+    /// must clear whenever anything the view model publishes changes, or the
+    /// grid keeps showing a stale list — a worse failure than the cost the
+    /// cache exists to avoid.
+    @MainActor
+    func testFilteredCacheInvalidatesWhenInputsChange() async throws {
+        let base = URL(
+            fileURLWithPath: NSTemporaryDirectory()
+        )
+        .appendingPathComponent(
+            "rawdesk-filtered-cache-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let photos = base.appendingPathComponent(
+            "photos",
+            isDirectory: true
+        )
+        let stores = base.appendingPathComponent(
+            "stores",
+            isDirectory: true
+        )
+        for directory in [photos, stores] {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+        }
+        defer {
+            try? FileManager.default.removeItem(at: base)
+        }
+        for (index, name) in [
+            "a.jpg", "b.jpg", "c.jpg",
+        ].enumerated() {
+            try Data([UInt8(index + 1)]).write(
+                to: photos.appendingPathComponent(name)
+            )
+        }
+
+        let library = LibraryViewModel(
+            userStateStore: UserStateStore(
+                directory: stores
+            ),
+            recentStore: RecentFolderStore(
+                directory: stores
+            ),
+            catalogStore: CatalogStore(
+                directory: stores
+            )
+        )
+        library.recursiveScan = false
+        library.sort = .filename
+        library.sortAscending = true
+        library.open(folder: photos)
+        for _ in 0..<300 where library.isScanning {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        // Prime the cache.
+        XCTAssertEqual(library.filtered.count, 3)
+
+        // Sort order is an input.
+        let ascending = library.filtered.map(\.filename)
+        library.sortAscending = false
+        let descending = library.filtered.map(\.filename)
+        XCTAssertEqual(
+            descending,
+            ascending.reversed(),
+            "reversing the sort must reorder the cached list"
+        )
+
+        // So is the filter.
+        library.sortAscending = true
+        guard let first = library.filtered.first else {
+            return XCTFail("expected photos")
+        }
+        library.setRating(4, for: first.id)
+        library.filter.minimumRating = 4
+        XCTAssertEqual(
+            library.filtered.map(\.id),
+            [first.id],
+            "applying a rating filter must narrow the cached list"
+        )
+
+        library.filter.minimumRating = 0
+        XCTAssertEqual(
+            library.filtered.count,
+            3,
+            "clearing the filter must restore the full list"
+        )
+    }
+
     @MainActor
     func testSelectiveAndAutomaticAdjustmentSyncPreserveTargets()
         async throws

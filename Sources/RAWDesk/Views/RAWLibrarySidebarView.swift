@@ -152,7 +152,6 @@ struct RAWLibrarySidebarView: View {
         }
         .listStyle(.sidebar)
         .rawPanelScrollBackground()
-        .navigationTitle("Library")
         .animation(
             reduceMotion
                 ? nil

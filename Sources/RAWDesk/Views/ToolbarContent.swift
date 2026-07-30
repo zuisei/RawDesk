@@ -171,7 +171,6 @@ struct MainToolbar: ToolbarContent {
     @Binding var isInspectorVisible: Bool
     @Binding var isFilmstripVisible: Bool
     @Binding var arePanelsTemporarilyHidden: Bool
-    @Binding var useLegacyLayout: Bool
     let onExport: () -> Void
 
     private var destination:
@@ -281,14 +280,6 @@ struct MainToolbar: ToolbarContent {
                 photoViewActions
                 Divider()
                 panelActions
-                Divider()
-                Toggle(
-                    "Use Legacy Layout",
-                    isOn: $useLegacyLayout
-                )
-                .help(
-                    "Temporary rollback switch for this redesign phase"
-                )
             } label: {
                 Label(
                     "More",

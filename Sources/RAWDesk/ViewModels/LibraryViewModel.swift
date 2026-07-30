@@ -284,7 +284,18 @@ public final class LibraryViewModel: ObservableObject {
         refreshPhotoStacks()
         refreshCatalogSummary()
         reconfigureAutoImportMonitoring()
+
+        // Drop the memoised `filtered` result whenever anything published
+        // changes. `objectWillChange` fires before the value settles, and the
+        // next read happens during the render that change triggers, so the
+        // recompute always sees the new state.
+        filteredCacheInvalidation = objectWillChange
+            .sink { [weak self] _ in
+                self?.filteredCache = nil
+            }
     }
+
+    private var filteredCacheInvalidation: AnyCancellable?
 
     deinit {
         scanTask?.cancel()
@@ -309,7 +320,29 @@ public final class LibraryViewModel: ObservableObject {
         }
     }
 
+    /// Memoised result of `computeFiltered`, cleared whenever anything the view
+    /// model publishes changes.
+    ///
+    /// One render of Library-with-filmstrip reads `filtered` seven times, and
+    /// each read allocated a filtered copy of the whole catalogue, sorted it
+    /// through `localizedStandardCompare`, and rebuilt stack ordering. It was
+    /// re-entered on every published change, so every rating keystroke and
+    /// every arrow-key move paid for it again.
+    ///
+    /// Invalidating from `objectWillChange` rather than from a `didSet` on each
+    /// input is deliberate: the inputs are numerous and some are private
+    /// non-published state, so an explicit list would rot silently into stale
+    /// results. Anything that can change what the UI sees fires this.
+    private var filteredCache: [PhotoAsset]?
+
     public var filtered: [PhotoAsset] {
+        if let filteredCache { return filteredCache }
+        let value = computeFiltered()
+        filteredCache = value
+        return value
+    }
+
+    private func computeFiltered() -> [PhotoAsset] {
         var visible = filter.isActive
             ? assets.filter { filter.matches($0) }
             : assets

@@ -65,8 +65,6 @@ struct ContentView: View {
     @AppStorage("rawdesk.ui.mapInspectorWidth")
     private var mapInspectorWidth =
         Double(RAWDeskTokens.Size.rightInspector)
-    @AppStorage("rawdesk.ui.useLegacyLayout")
-    private var useLegacyLayout = false
     @State private var arePanelsTemporarilyHidden = false
     @State private var didConfigureInitialCompactLayout = false
     @State private var toolStartAdjustments:
@@ -114,101 +112,6 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var workspaceContent: some View {
-        if library.workspaceMode == .people {
-            PeopleWorkspaceView(
-                people: people,
-                library: library
-            )
-            .frame(minWidth: 560)
-        } else if library.workspaceMode == .map {
-            MapWorkspaceView(library: library)
-                .frame(minWidth: 480)
-        } else if library.isScanning,
-                  library.assets.isEmpty {
-            WorkspaceLoadingView(
-                title: "Loading photos…"
-            )
-        } else if library.assets.isEmpty {
-            WorkspaceEmptyView(
-                hasOpenFolder: library.rootURL != nil,
-                onOpenFolder: library.openFolderPicker
-            )
-        } else {
-            VSplitView {
-                if library.referenceState != nil {
-                    PhotoReferenceWorkspaceView(
-                        library: library,
-                        referenceViewer: referenceViewer,
-                        activeViewer: viewer,
-                        onCropChange: updateCrop,
-                        onGuidedUprightGuidesChange:
-                            updateGuidedUprightGuides,
-                        onSpotRemovalChange: updateSpotRemoval,
-                        onBrushStrokeCommit: appendBrushStroke,
-                        onObjectMaskPoint: addObjectMask,
-                        onPointColorSample: addPointColorSample,
-                        onMaskColorRangeSample:
-                            addMaskColorRangeSample
-                    )
-                    .frame(minHeight: 300)
-                } else if library.surveyState != nil {
-                    PhotoSurveyWorkspaceView(
-                        library: library
-                    )
-                    .frame(minHeight: 300)
-                } else if library.compareState != nil {
-                    PhotoCompareWorkspaceView(
-                        library: library,
-                        selectViewer: compareViewer,
-                        candidateViewer: viewer
-                    )
-                    .frame(minHeight: 300)
-                } else {
-                    ImagePreviewView(
-                        viewer: viewer,
-                        asset: library.selectedAsset,
-                        onCropChange: updateCrop,
-                        onGuidedUprightGuidesChange:
-                            updateGuidedUprightGuides,
-                        onSpotRemovalChange: updateSpotRemoval,
-                        onBrushStrokeCommit: appendBrushStroke,
-                        onObjectMaskPoint: addObjectMask,
-                        onPointColorSample: addPointColorSample,
-                        onMaskColorRangeSample: addMaskColorRangeSample
-                    )
-                    .frame(minHeight: 240)
-                }
-                if library.referenceState != nil {
-                    PhotoReferenceFilmstripView(library: library)
-                        .frame(
-                            minHeight: 132,
-                            idealHeight: 146,
-                            maxHeight: 164
-                        )
-                } else if library.surveyState != nil {
-                    PhotoSurveyFilmstripView(library: library)
-                        .frame(
-                            minHeight: 132,
-                            idealHeight: 146,
-                            maxHeight: 164
-                        )
-                } else if library.compareState != nil {
-                    PhotoCompareFilmstripView(library: library)
-                        .frame(
-                            minHeight: 132,
-                            idealHeight: 146,
-                            maxHeight: 164
-                        )
-                } else {
-                    ThumbnailGridView(library: library)
-                        .frame(minHeight: 180)
-                }
-            }
-            .frame(minWidth: 480)
-        }
-    }
-
     private var developWorkspaceContent: some View {
         VSplitView {
             Group {
@@ -259,36 +162,6 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var workspaceDetail: some View {
-        if library.workspaceMode == .people {
-            PeopleInspectorView(
-                people: people,
-                library: library
-            )
-            .frame(minWidth: 290, idealWidth: 320)
-        } else if library.workspaceMode == .map {
-            LocationInspectorView(library: library)
-                .frame(
-                    minWidth: 290,
-                    idealWidth: 320,
-                    maxHeight: .infinity
-                )
-        } else if library.catalogCollection == .assistedCulling {
-            AssistedCullingInspectorView(
-                library: library,
-                asset: library.selectedAsset
-            )
-            .frame(minWidth: 290, idealWidth: 320)
-        } else {
-            PhotoInspectorView(
-                library: library,
-                viewer: viewer,
-                asset: library.selectedAsset
-            )
-            .frame(minWidth: 290, idealWidth: 320)
-        }
-    }
-
     private var keyboardHandler: KeyboardHandler {
         KeyboardHandler(
             onPrev: { library.selectPrevious() },
@@ -443,13 +316,7 @@ struct ContentView: View {
     }
 
     private var primaryWorkspace: some View {
-        Group {
-            if useLegacyLayout {
-                legacyPrimaryWorkspace
-            } else {
-                redesignedPrimaryWorkspace
-            }
-        }
+        redesignedPrimaryWorkspace
         // The module picker already names the current module, three inches to
         // the right. Repeating "Develop" in the title said the same word twice
         // and spent the title on the one thing already on screen; the catalog
@@ -469,7 +336,6 @@ struct ContentView: View {
                     $isFilmstripVisible,
                 arePanelsTemporarilyHidden:
                     $arePanelsTemporarilyHidden,
-                useLegacyLayout: $useLegacyLayout,
                 onExport: exportSelected
             )
         }
@@ -480,48 +346,6 @@ struct ContentView: View {
                     ? "Search people or filenames"
                     : "Search filename, keyword, camera, or note"
         )
-    }
-
-    private var legacyPrimaryWorkspace:
-        some View {
-        Group {
-            if library.workspaceMode == .library,
-               photoWorkspaceMode == .develop {
-                NavigationSplitView {
-                    DevelopSidebarView(
-                        library: library,
-                        viewer: viewer
-                    )
-                    .frame(
-                        minWidth: 220,
-                        idealWidth: 250
-                    )
-                } content: {
-                    developWorkspaceContent
-                } detail: {
-                    workspaceDetail
-                        .frame(
-                            minWidth: 320,
-                            idealWidth: 360
-                        )
-                }
-            } else {
-                NavigationSplitView {
-                    LibrarySidebarView(
-                        library: library,
-                        people: people
-                    )
-                    .frame(
-                        minWidth: 220,
-                        idealWidth: 250
-                    )
-                } content: {
-                    workspaceContent
-                } detail: {
-                    workspaceDetail
-                }
-            }
-        }
     }
 
     private var redesignedPrimaryWorkspace:

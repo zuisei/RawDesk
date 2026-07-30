@@ -756,7 +756,6 @@ struct PeopleInspectorView: View {
             maxWidth: .infinity,
             maxHeight: .infinity
         )
-        .navigationTitle("People Details")
         .onAppear { updateNameDraft() }
         .onChange(of: people.selectedGroupID) { _, _ in
             updateNameDraft()
