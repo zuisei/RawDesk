@@ -1,0 +1,87 @@
+name: RAWDesk
+options:
+  bundleIdPrefix: local.rawdesk
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.1"
+    CURRENT_PROJECT_VERSION: "2"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_HARDENED_RUNTIME: NO
+targets:
+  RAWDesk:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/RAWDesk
+        excludes:
+          - "**/.DS_Store"
+    resources:
+      - path: Resources/AppIcon.icns
+        optional: true
+    info:
+      path: Resources/Info-Generated.plist
+      properties:
+        CFBundleDevelopmentRegion: en
+        CFBundleDisplayName: RAWDesk
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIconFile: AppIcon
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.photography
+        NSHighResolutionCapable: true
+        NSPrincipalClass: NSApplication
+        NSSupportsAutomaticTermination: true
+        NSSupportsSuddenTermination: true
+        NSHumanReadableCopyright: RAWDesk
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.rawdesk.app
+        PRODUCT_NAME: RAWDesk
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        COMBINE_HIDPI_IMAGES: YES
+        ENABLE_PREVIEWS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+        OTHER_LDFLAGS: "$(inherited) -lsqlite3"
+  RAWDeskTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Tests/RAWDeskTests
+    dependencies:
+      - target: RAWDesk
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.rawdesk.tests
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/RAWDesk.app/Contents/MacOS/RAWDesk
+schemes:
+  RAWDesk:
+    build:
+      targets:
+        RAWDesk: all
+        RAWDeskTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      environmentVariables:
+        RAWDESK_SUPPORT_DIRECTORY_OVERRIDE: /tmp/RAWDesk-XcodeTests-Support
+      targets:
+        - RAWDeskTests
+    archive:
+      config: Release
