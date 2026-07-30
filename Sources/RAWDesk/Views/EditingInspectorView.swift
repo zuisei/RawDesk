@@ -171,7 +171,7 @@ struct EditingInspectorView: View {
                             }
                             .disabled(asset.userState.adjustments.colorMixer.isNeutral)
                         }
-                        .buttonStyle(.link)
+                        .rawSecondaryTextAction()
                         .font(RAWDeskTokens.Typography.metadata)
                     }
 
@@ -375,13 +375,13 @@ struct EditingInspectorView: View {
                                         deletePointColor(point.id, from: asset)
                                     }
                                 }
-                                .buttonStyle(.link)
+                                .rawSecondaryTextAction()
                                 .font(RAWDeskTokens.Typography.metadata)
 
                                 Button("Remove All Swatches", role: .destructive) {
                                     resetPointColors(for: asset)
                                 }
-                                .buttonStyle(.link)
+                                .rawSecondaryTextAction()
                                 .font(RAWDeskTokens.Typography.metadata)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                             }
@@ -471,7 +471,7 @@ struct EditingInspectorView: View {
                             }
                             .disabled(asset.userState.adjustments.colorGrading.isNeutral)
                         }
-                        .buttonStyle(.link)
+                        .rawSecondaryTextAction()
                         .font(RAWDeskTokens.Typography.metadata)
                     }
 
@@ -542,7 +542,7 @@ struct EditingInspectorView: View {
                         Button("Reset Calibration") {
                             resetCalibration(for: asset)
                         }
-                        .buttonStyle(.link)
+                        .rawSecondaryTextAction()
                         .font(RAWDeskTokens.Typography.metadata)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .disabled(asset.userState.adjustments.calibration.isNeutral)
@@ -788,7 +788,7 @@ struct EditingInspectorView: View {
                                         }
                                         .disabled(selectedMask.strokes.isEmpty)
                                     }
-                                    .buttonStyle(.link)
+                                    .rawSecondaryTextAction()
                                     .font(RAWDeskTokens.Typography.metadata)
                                 } else if selectedMask.kind != .subject
                                             && selectedMask.kind != .object
@@ -1055,7 +1055,7 @@ struct EditingInspectorView: View {
                                         Label("Delete", systemImage: "trash")
                                     }
                                 }
-                                .buttonStyle(.link)
+                                .rawSecondaryTextAction()
                                 .font(RAWDeskTokens.Typography.metadata)
                             }
                         }
@@ -1256,7 +1256,7 @@ struct EditingInspectorView: View {
                                 } label: {
                                     Label("Delete Repair", systemImage: "trash")
                                 }
-                                .buttonStyle(.link)
+                                .rawSecondaryTextAction()
                                 .font(RAWDeskTokens.Typography.metadata)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                             }
@@ -1499,7 +1499,7 @@ struct EditingInspectorView: View {
                         } label: {
                             Label("Reset Optics", systemImage: "camera.aperture")
                         }
-                        .buttonStyle(.link)
+                        .rawSecondaryTextAction()
                         .font(RAWDeskTokens.Typography.metadata)
                         .disabled(asset.userState.adjustments.optics.isNeutral)
                     }
@@ -1665,7 +1665,7 @@ struct EditingInspectorView: View {
                                         for: asset
                                     )
                                 }
-                                .buttonStyle(.link)
+                                .rawSecondaryTextAction()
                                 .font(RAWDeskTokens.Typography.metadata)
                             }
                         }
@@ -1850,7 +1850,7 @@ struct EditingInspectorView: View {
                         } label: {
                             Label("Reset Crop & Geometry", systemImage: "crop.rotate")
                         }
-                        .buttonStyle(.link)
+                        .rawSecondaryTextAction()
                         .font(RAWDeskTokens.Typography.metadata)
                         .disabled(
                             crop.isFullFrame
@@ -2005,7 +2005,7 @@ struct EditingInspectorView: View {
                             } label: {
                                 Label("Save Current Version", systemImage: "plus.circle")
                             }
-                            .buttonStyle(.link)
+                            .rawSecondaryTextAction()
                             .font(RAWDeskTokens.Typography.metadata)
 
                             if asset.userState.versions.isEmpty {
@@ -3391,7 +3391,7 @@ struct EditingInspectorView: View {
                     }
                     .disabled(operation.strokes.isEmpty)
                 }
-                .buttonStyle(.link)
+                .rawSecondaryTextAction()
                 .font(RAWDeskTokens.Typography.metadata)
             } else if operation.kind == .radial || operation.kind == .linear {
                 MaskValueSlider(
@@ -3516,7 +3516,7 @@ struct EditingInspectorView: View {
                         for: asset
                     )
                 }
-                .buttonStyle(.link)
+                .rawSecondaryTextAction()
                 .font(RAWDeskTokens.Typography.metadata)
             }
         }
@@ -3705,7 +3705,7 @@ struct EditingInspectorView: View {
                         deleteMaskPointColor(point.id, from: mask.id, for: asset)
                     }
                 }
-                .buttonStyle(.link)
+                .rawSecondaryTextAction()
                 .font(RAWDeskTokens.Typography.metadata)
             }
         }
@@ -4132,7 +4132,7 @@ struct EditingInspectorView: View {
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
-                    .buttonStyle(.link)
+                    .rawSecondaryTextAction()
                     .font(RAWDeskTokens.Typography.metadata)
                 }
             }
@@ -5906,7 +5906,7 @@ private struct ToneCurveEditor: View {
             } label: {
                 Label("Reset Tone Curve", systemImage: "arrow.counterclockwise")
             }
-            .buttonStyle(.link)
+            .rawSecondaryTextAction()
             .font(RAWDeskTokens.Typography.metadata)
             .disabled(curve.isNeutral && !isMixed)
         }

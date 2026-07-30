@@ -450,12 +450,11 @@ struct ContentView: View {
                 redesignedPrimaryWorkspace
             }
         }
-        .navigationTitle(
-            library.workspaceMode == .library
-                && photoWorkspaceMode == .develop
-                ? "Develop — \(library.displayTitle)"
-                : library.displayTitle
-        )
+        // The module picker already names the current module, three inches to
+        // the right. Repeating "Develop" in the title said the same word twice
+        // and spent the title on the one thing already on screen; the catalog
+        // or folder name is what the title should carry.
+        .navigationTitle(library.displayTitle)
         .toolbar {
             MainToolbar(
                 library: library,
@@ -1884,15 +1883,18 @@ private struct DevelopNavigatorPreview: View {
     let image: NSImage?
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(
-                cornerRadius: RAWDeskTokens.Radius.control
-            )
-            .fill(RAWDeskTokens.ColorToken.canvas)
+        Group {
             if let image {
+                // Sized to the photo's own aspect ratio rather than dropped
+                // into a fixed landscape box. A portrait frame previously left
+                // wide black bars on both sides that read as a broken image.
                 Image(nsImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .aspectRatio(
+                        aspectRatio(of: image),
+                        contentMode: .fit
+                    )
+                    .frame(maxHeight: 150)
                     .clipShape(
                         RoundedRectangle(
                             cornerRadius:
@@ -1900,15 +1902,29 @@ private struct DevelopNavigatorPreview: View {
                         )
                     )
             } else {
-                Image(systemName: "photo")
-                    .foregroundStyle(
-                        RAWDeskTokens.ColorToken
-                            .textSecondary
+                ZStack {
+                    RoundedRectangle(
+                        cornerRadius:
+                            RAWDeskTokens.Radius.control
                     )
+                    .fill(RAWDeskTokens.ColorToken.canvas)
+                    Image(systemName: "photo")
+                        .foregroundStyle(
+                            RAWDeskTokens.ColorToken
+                                .textSecondary
+                        )
+                }
+                .frame(height: 96)
             }
         }
-        .frame(height: 116)
+        .frame(maxWidth: .infinity)
         .accessibilityLabel("Navigator preview")
+    }
+
+    private func aspectRatio(of image: NSImage) -> CGFloat {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return 1 }
+        return size.width / size.height
     }
 }
 
@@ -1925,6 +1941,40 @@ private struct DevelopSidebarView: View {
         return name.isEmpty ? url.path : name
     }
 
+    private func zoomPreset(
+        _ title: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(RAWDeskTokens.Typography.metadata)
+                .foregroundStyle(
+                    RAWDeskTokens.ColorToken.textPrimary
+                )
+                .padding(
+                    .horizontal,
+                    RAWDeskTokens.Spacing.small
+                )
+                .frame(
+                    minHeight: RAWDeskTokens.Size.iconTarget
+                )
+                .background(
+                    RAWDeskTokens.ColorToken.controlElevated,
+                    in: RoundedRectangle(
+                        cornerRadius:
+                            RAWDeskTokens.Radius.control
+                    )
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(
+            title == "Fit"
+                ? "Fit the photo to the window"
+                : "View at actual pixel size"
+        )
+    }
+
     var body: some View {
         List {
             // A Navigator is a preview with zoom presets, not a caption. The
@@ -1939,23 +1989,25 @@ private struct DevelopSidebarView: View {
                         DevelopNavigatorPreview(
                             image: viewer.image
                         )
+                        // Zoom presets read as controls, not as blue links.
+                        // A List renders a plain Button as accent-coloured
+                        // text, which put two hyperlinks under the preview.
                         HStack(
                             spacing:
                                 RAWDeskTokens.Spacing.xSmall
                         ) {
-                            Button("Fit") {
+                            zoomPreset("Fit") {
                                 viewer.transform.fit()
                             }
-                            .help("Fit the photo to the window")
-                            Button("100%") {
+                            zoomPreset("100%") {
                                 viewer.transform.actualSize()
                             }
-                            .help("View at actual pixel size")
                             Spacer(minLength: 0)
                         }
-                        .font(
-                            RAWDeskTokens.Typography.metadata
-                        )
+                        // The extension already states the format, so the
+                        // separate format line only repeats it. RAW files keep
+                        // the note because "ARW · RAW" is not obvious from the
+                        // extension alone.
                         Text(asset.filename)
                             .font(
                                 RAWDeskTokens.Typography
@@ -1963,13 +2015,13 @@ private struct DevelopSidebarView: View {
                             )
                             .lineLimit(1)
                             .truncationMode(.middle)
-                        Text(
-                            asset.isRaw
-                                ? "\(asset.format.displayName) · RAW"
-                                : asset.format.displayName
-                        )
-                        .font(RAWDeskTokens.Typography.metadata)
-                        .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
+                        if asset.isRaw {
+                            Text(
+                                "\(asset.format.displayName) · RAW"
+                            )
+                            .font(RAWDeskTokens.Typography.metadata)
+                            .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
+                        }
                     }
                     .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
                 } else {
@@ -2081,7 +2133,9 @@ private struct DevelopSidebarView: View {
                         .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
                     }
 
-                    Text("Use ⌘Z / ⇧⌘Z to move through edit history.")
+                    // Was truncating to "…move through edit…" at the panel's
+                    // real width, which is worse than not saying it at all.
+                    Text("⌘Z / ⇧⌘Z to step through history")
                         .font(
                             RAWDeskTokens.Typography
                                 .metadata
@@ -2089,6 +2143,10 @@ private struct DevelopSidebarView: View {
                         .foregroundStyle(
                             RAWDeskTokens.ColorToken
                                 .textSecondary
+                        )
+                        .fixedSize(
+                            horizontal: false,
+                            vertical: true
                         )
                 }
             }
@@ -2178,7 +2236,9 @@ private struct DevelopSidebarView: View {
         }
         .listStyle(.sidebar)
         .rawPanelScrollBackground()
-        .navigationTitle("Develop")
+        // No title here. This sidebar set the window title to "Develop", which
+        // overrode the catalog name and put the word on screen twice — once
+        // beside the toolbar buttons and once in the module picker.
     }
 
     private func syncViewer() {

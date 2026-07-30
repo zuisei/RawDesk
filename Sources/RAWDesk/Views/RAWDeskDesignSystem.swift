@@ -383,6 +383,18 @@ extension View {
         .contentShape(Rectangle())
     }
 
+    /// Secondary text actions in the inspectors — Reset, Reset All, and the
+    /// like. macOS's `.link` style paints these the accent colour with web
+    /// semantics, which scattered what looked like hyperlinks down the panel.
+    /// They are quiet labels that the surrounding row already gives context to.
+    func rawSecondaryTextAction() -> some View {
+        buttonStyle(.plain)
+            .font(RAWDeskTokens.Typography.metadata)
+            .foregroundStyle(
+                RAWDeskTokens.ColorToken.textSecondary
+            )
+    }
+
     func rawPrimaryButtonHeight() -> some View {
         frame(
             minHeight:
@@ -1110,17 +1122,19 @@ struct RAWInspectorSection<Content: View>: View {
                     )
                 }
 
-                if let onReset {
+                // Only offered when there is something to reset. A greyed
+                // "Reset" on every untouched section — including collapsed
+                // ones — was five pieces of dead chrome in the panel, and
+                // rendering it in the accent colour made a column of what
+                // looked like links down the right edge.
+                if let onReset, !isResetDisabled {
                     Button("Reset", action: onReset)
                         .buttonStyle(.plain)
                         .font(RAWDeskTokens.Typography.metadata)
                         .foregroundStyle(
-                            isResetDisabled
-                                ? RAWDeskTokens.ColorToken
-                                    .textSecondary.opacity(0.5)
-                                : RAWDeskTokens.ColorToken.selection
+                            RAWDeskTokens.ColorToken
+                                .textSecondary
                         )
-                        .disabled(isResetDisabled)
                         .help("Reset \(title)")
                 }
             }
@@ -1206,12 +1220,15 @@ private struct RAWSliderTrack: View {
     let usesNeutralTint: Bool
     let showsMixedMarker: Bool
 
-    private let knobDiameter: CGFloat = 11
-    private let trackHeight: CGFloat = 3
+    // A develop slider is this app's primary instrument, so it is sized to be
+    // grabbed and read, not to be visually minimal. The earlier 3pt track and
+    // 11pt knob looked tidy and felt like a preferences pane.
+    private let knobDiameter: CGFloat = 14
+    private let trackHeight: CGFloat = 5
     /// Tall enough to completely cover the native slider underneath, including
     /// its thumb. The native control stays fully opaque and interactive; this
     /// layer is what the user actually sees.
-    private let coverHeight: CGFloat = 22
+    private let coverHeight: CGFloat = 24
 
     var body: some View {
         GeometryReader { proxy in
@@ -1263,6 +1280,23 @@ private struct RAWSliderTrack: View {
                 Circle()
                     .fill(
                         RAWDeskTokens.ColorToken.sliderKnob
+                    )
+                    // A rim and a cast shadow give the knob a physical edge
+                    // against both the track and the panel, so it reads as
+                    // something to grab rather than a printed dot.
+                    .overlay {
+                        Circle()
+                            .strokeBorder(
+                                RAWDeskTokens.ColorToken
+                                    .canvas.opacity(0.55),
+                                lineWidth: 1
+                            )
+                    }
+                    .shadow(
+                        color: RAWDeskTokens.ColorToken
+                            .canvas.opacity(0.6),
+                        radius: 1.5,
+                        y: 1
                     )
                     .frame(
                         width: knobDiameter,
@@ -1332,12 +1366,16 @@ struct RAWSliderRow: View {
                     RAWDeskTokens.Spacing.small
             ) {
                 GridRow {
+                    // Wide enough for "Temperature", the longest label in the
+                    // panel. 72 truncated it to "Temperat…"; the value column
+                    // is where the width was reclaimed instead.
                     Text(title)
                         .font(
                             RAWDeskTokens.Typography.control
                         )
+                        .lineLimit(1)
                         .frame(
-                            width: 78,
+                            width: 84,
                             alignment: .leading
                         )
                     // The native Slider stays fully opaque and underneath, so
@@ -1398,7 +1436,10 @@ struct RAWSliderRow: View {
                     .monospacedDigit()
                     .multilineTextAlignment(.trailing)
                     .focused($textFieldFocused)
-                    .frame(width: 58)
+                    // Sized to the widest real value ("+100.00"). It was wide
+                    // enough to leave a visible dead gap between the end of
+                    // the track and the number.
+                    .frame(width: 48)
                     .frame(
                         minHeight:
                             RAWDeskTokens.Size.iconTarget

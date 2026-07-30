@@ -236,7 +236,7 @@ struct MetadataInspectorView: View {
                     Button(rawDetail.actionTitle) {
                         rawErrorDetails = rawDetail
                     }
-                    .buttonStyle(.link)
+                    .rawSecondaryTextAction()
                     .font(
                         RAWDeskTokens.Typography.metadata
                     )
@@ -529,7 +529,7 @@ struct MetadataInspectorView: View {
                     systemImage: "map"
                 )
             }
-            .buttonStyle(.link)
+            .rawSecondaryTextAction()
             .font(RAWDeskTokens.Typography.metadata)
             .accessibilityIdentifier("Metadata show map")
 
