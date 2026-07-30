@@ -58,7 +58,23 @@ public enum HistogramAnalyzer {
             )
         }
 
-        let largest = pixels.max() ?? 0
+        // Peak over the colour channels only. The buffer is interleaved RGBA,
+        // and `inputScale: 1.0` makes each channel's bins sum to 1. In an
+        // opaque photograph every pixel's alpha lands in the top bin, so that
+        // one bin holds 1.0 — larger than any RGB bin can be. Taking
+        // `pixels.max()` therefore normalised every curve against alpha and
+        // drew the histogram at a few percent of its true height.
+        //
+        // One shared peak across R, G and B: normalising each channel
+        // separately would equalise their heights and hide colour casts.
+        var largest: Float = 0
+        var scanIndex = 0
+        while scanIndex < pixels.count {
+            largest = max(largest, pixels[scanIndex])
+            largest = max(largest, pixels[scanIndex + 1])
+            largest = max(largest, pixels[scanIndex + 2])
+            scanIndex += 4
+        }
         guard largest > 0 else { return .empty }
         func channel(_ offset: Int) -> [CGFloat] {
             stride(from: offset, to: pixels.count, by: 4).map {
@@ -67,21 +83,16 @@ public enum HistogramAnalyzer {
                 CGFloat(sqrt(max(0, pixels[$0]) / largest))
             }
         }
-        var colorTotal: Float = 0
-        var pixelIndex = 0
-        while pixelIndex < pixels.count {
-            colorTotal += pixels[pixelIndex]
-            colorTotal += pixels[pixelIndex + 1]
-            colorTotal += pixels[pixelIndex + 2]
-            pixelIndex += 4
-        }
-        let shadow = colorTotal > 0
-            ? (pixels[0] + pixels[1] + pixels[2]) / colorTotal
-            : 0
+        // Clipping is per-channel: a blown red channel is blown even when green
+        // and blue are fine. Averaging the three channels divided a
+        // single-channel clip by three and under-reported it.
         let last = (binCount - 1) * 4
-        let highlight = colorTotal > 0
-            ? (pixels[last] + pixels[last + 1] + pixels[last + 2]) / colorTotal
-            : 0
+        let shadow = max(pixels[0], pixels[1], pixels[2])
+        let highlight = max(
+            pixels[last],
+            pixels[last + 1],
+            pixels[last + 2]
+        )
         return HistogramData(
             red: channel(0),
             green: channel(1),

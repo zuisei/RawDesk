@@ -9415,6 +9415,58 @@ final class PhotoProcessorTests: XCTestCase {
         XCTAssertGreaterThan(histogram?.red.max() ?? 0, 0)
     }
 
+    /// A histogram curve must be normalised against the tallest colour bin, so
+    /// the peak of a real photograph reaches the top of the panel.
+    ///
+    /// This needs a non-flat image to mean anything. The interleaved bin buffer
+    /// carries alpha alongside RGB, and in an opaque photograph every pixel's
+    /// alpha lands in one bin — making that bin taller than any colour bin can
+    /// be, and flattening the drawn curve to a few percent of its height. A
+    /// solid-colour source cannot detect it, because its one occupied colour
+    /// bin holds every pixel and ties with alpha.
+    func testHistogramNormalisesAgainstColorChannelsNotAlpha() {
+        let ramp = makeHorizontalGrayRampImage(
+            width: 256,
+            height: 8
+        )
+        let histogram = HistogramAnalyzer.analyze(
+            ramp,
+            binCount: 128
+        )
+        let peak = max(
+            histogram?.red.max() ?? 0,
+            max(
+                histogram?.green.max() ?? 0,
+                histogram?.blue.max() ?? 0
+            )
+        )
+        // Normalised against alpha this lands near 0.09.
+        XCTAssertEqual(peak, 1.0, accuracy: 0.02)
+    }
+
+    /// Clipping is per channel: a blown red channel is blown regardless of what
+    /// green and blue are doing. Averaging the three channels reported a
+    /// single-channel clip at a third of its true extent.
+    func testHistogramReportsSingleChannelClippingAtFullExtent() {
+        let redClipped = HistogramAnalyzer.analyze(
+            makeColorImage(
+                width: 16,
+                height: 16,
+                color: NSColor(
+                    red: 1,
+                    green: 0.5,
+                    blue: 0.5,
+                    alpha: 1
+                )
+            ),
+            binCount: 64
+        )
+        XCTAssertGreaterThan(
+            redClipped?.highlightClippingFraction ?? 0,
+            0.9
+        )
+    }
+
     func testHistogramReportsClippedShadowsAndHighlights() {
         let black = HistogramAnalyzer.analyze(
             makeSolidImage(width: 16, height: 16, gray: 0),
@@ -11810,6 +11862,42 @@ final class PhotoProcessorTests: XCTestCase {
             privateIPTC[
                 kCGImagePropertyIPTCCountryPrimaryLocationName
             ]
+        )
+    }
+
+    /// A left-to-right black-to-white ramp. Spreads pixels evenly across the
+    /// histogram bins, so no single colour bin holds them all.
+    private func makeHorizontalGrayRampImage(
+        width: Int,
+        height: Int
+    ) -> NSImage {
+        let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        for x in 0..<width {
+            let level = CGFloat(x) / CGFloat(max(width - 1, 1))
+            context.setFillColor(
+                NSColor(white: level, alpha: 1).cgColor
+            )
+            context.fill(
+                CGRect(
+                    x: CGFloat(x),
+                    y: 0,
+                    width: 1,
+                    height: CGFloat(height)
+                )
+            )
+        }
+        let cgImage = context.makeImage()!
+        return NSImage(
+            cgImage: cgImage,
+            size: NSSize(width: width, height: height)
         )
     }
 

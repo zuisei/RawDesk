@@ -63,7 +63,11 @@ public final class PhotoViewerViewModel: ObservableObject {
     private var histogramTask: Task<Void, Never>?
     private let loader: ImageLoader
     private let renderQueue: PhotoRenderQueue
-    private let previewTarget: CGFloat = 3840
+    // Shared with PhotoProcessor so the resolution the detail sliders were
+    // tuned at and the resolution the preview is decoded at stay the same
+    // number.
+    private let previewTarget: CGFloat =
+        PhotoProcessor.detailReferenceLongestEdge
     private var currentAdjustments: PhotoAdjustments = .neutral
     private var developedImage: NSImage?
     private var softProofRevision = 0

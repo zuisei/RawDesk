@@ -23,6 +23,14 @@ public enum PhotoProcessor {
         CGColorSpace(name: CGColorSpace.extendedLinearSRGB) ?? CGColorSpaceCreateDeviceRGB()
     private static let outputColorSpace =
         CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+    /// Longest edge the preview is decoded at, and therefore the resolution at
+    /// which the detail sliders' pixel radii were tuned. `develop()` scales
+    /// those radii relative to this so a full-resolution export applies the
+    /// same *apparent* sharpening, clarity, texture, noise reduction and grain
+    /// as the preview the user judged it by. `PhotoViewerViewModel` decodes
+    /// against this same constant so the two cannot drift apart.
+    public static let detailReferenceLongestEdge: CGFloat = 3840
+
     private static let context = CIContext(options: [
         .workingColorSpace: workingColorSpace,
         .outputColorSpace: outputColorSpace,
@@ -191,7 +199,19 @@ public enum PhotoProcessor {
     ) throws -> NSImage {
         let source: NSImage
         if asset.isRaw {
-            source = try RAWImageLoader.load(url: asset.url, targetLongestEdge: nil)
+            // Decode through the same half-float extended-linear path the
+            // on-screen preview uses (ImageLoader passes preserveWideGamut for
+            // preview quality). Without it the RAW was quantised to 8 bits and
+            // hard-clipped at 0 and 1 *before* any adjustment ran, so highlight
+            // recovery that worked on screen produced flat white on export, and
+            // CIRAWFilter's gamut mapping was applied to the export but not the
+            // preview. The file written at the end is still 8-bit sRGB; what
+            // changes is the precision the adjustment math gets to work with.
+            source = try RAWImageLoader.load(
+                url: asset.url,
+                targetLongestEdge: nil,
+                preserveWideGamut: true
+            )
         } else {
             source = try loadFullResolutionImage(url: asset.url)
         }
@@ -243,6 +263,20 @@ public enum PhotoProcessor {
             )
         }
         let originalExtent = image.extent
+        // Detail filters below take radii in absolute source pixels, but the
+        // preview is decoded to `detailReferenceLongestEdge` while an export
+        // decodes at native size. Without this the same slider produced
+        // markedly softer sharpening and finer grain on a large export than on
+        // the preview it was judged by. Deliberately derived from
+        // `originalExtent`, before cropping: cropping changes framing, not
+        // pixel density. Floored at 1 so sources smaller than the preview
+        // target — where preview and export are the same size — keep exactly
+        // today's rendering.
+        let detailScale = max(
+            1,
+            max(originalExtent.width, originalExtent.height)
+                / Self.detailReferenceLongestEdge
+        )
 
         // White balance is deliberately relative. Zero preserves the camera/RAW
         // decoder's neutral rendering rather than imposing a hard-coded profile.
@@ -404,7 +438,7 @@ public enum PhotoProcessor {
                     "CIUnsharpMask",
                     to: image,
                     values: [
-                        kCIInputRadiusKey: 0.7 + a.texture / 100 * 1.4,
+                        kCIInputRadiusKey: (0.7 + a.texture / 100 * 1.4) * detailScale,
                         kCIInputIntensityKey: a.texture / 100 * 0.72
                     ]
                 ).cropped(to: originalExtent)
@@ -432,7 +466,7 @@ public enum PhotoProcessor {
                     "CIUnsharpMask",
                     to: image,
                     values: [
-                        kCIInputRadiusKey: 2.5 + a.clarity / 100 * 2.5,
+                        kCIInputRadiusKey: (2.5 + a.clarity / 100 * 2.5) * detailScale,
                         kCIInputIntensityKey: a.clarity / 100 * 0.8
                     ]
                 ).cropped(to: originalExtent)
@@ -488,7 +522,7 @@ public enum PhotoProcessor {
                     "CIUnsharpMask",
                     to: denoised,
                     values: [
-                        kCIInputRadiusKey: 1.5 + a.noiseReductionContrast / 35,
+                        kCIInputRadiusKey: (1.5 + a.noiseReductionContrast / 35) * detailScale,
                         kCIInputIntensityKey: a.noiseReductionContrast / 100 * 0.35
                     ]
                 ).cropped(to: originalExtent)
@@ -505,7 +539,7 @@ public enum PhotoProcessor {
             let smoothedColor = applying(
                 "CIGaussianBlur",
                 to: image,
-                values: [kCIInputRadiusKey: max(0.25, radius)]
+                values: [kCIInputRadiusKey: max(0.25, radius) * detailScale]
             ).cropped(to: originalExtent)
             let chromaDenoised = applying(
                 "CIColorBlendMode",
@@ -530,7 +564,7 @@ public enum PhotoProcessor {
                 to: image,
                 values: [
                     kCIInputSharpnessKey: a.sharpening / 100 * 1.45 * detailGain,
-                    kCIInputRadiusKey: a.sharpeningRadius
+                    kCIInputRadiusKey: a.sharpeningRadius * detailScale
                 ]
             ).cropped(to: originalExtent)
 
@@ -616,7 +650,8 @@ public enum PhotoProcessor {
                 size: a.grainSize,
                 roughness: a.grainRoughness,
                 to: image,
-                extent: developedExtent
+                extent: developedExtent,
+                detailScale: detailScale
             )
         }
 
@@ -632,9 +667,13 @@ public enum PhotoProcessor {
         size: Double,
         roughness: Double,
         to source: CIImage,
-        extent: CGRect
+        extent: CGRect,
+        detailScale: CGFloat
     ) -> CIImage {
-        let grainScale = CGFloat(0.38 + size / 100 * 2.15)
+        // The grain tile is a fixed 512×512 pattern, so without scaling the
+        // grain is finer on a large export than on the preview it was set on.
+        let grainScale =
+            CGFloat(0.38 + size / 100 * 2.15) * detailScale
         var noise = grainTile.transformed(
             by: CGAffineTransform(scaleX: grainScale, y: grainScale)
         )
