@@ -1805,14 +1805,11 @@ private struct ImportItemRow: View {
             }
             Spacer()
             if item.sidecarURL != nil {
-                Text("XMP")
-                    .font(RAWDeskTokens.Typography.badge)
-                    .padding(.horizontal, RAWDeskTokens.Spacing.xSmall)
-                    .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
-                    .background(
-                        RAWDeskTokens.ColorToken.selection.opacity(0.12),
-                        in: Capsule()
-                    )
+                RAWStateBadge(
+                    text: "XMP",
+                    tone: .accent,
+                    prominence: .soft
+                )
             }
             Text(statusName)
                 .font(RAWDeskTokens.Typography.badge)

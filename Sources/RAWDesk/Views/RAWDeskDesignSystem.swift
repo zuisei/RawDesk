@@ -166,6 +166,14 @@ enum RAWDeskTokens {
         static let inspectorRow: CGFloat = 30
         static let workspaceControlBar: CGFloat = 36
         static let canvasStatusBar: CGFloat = 28
+        /// The dot of a handle the user drags directly on the photograph, and
+        /// the invisible target around it. Crop, Remove, and Guided Upright
+        /// each specified their own; a handle is one object, so it is one size.
+        static let canvasHandle: CGFloat = 12
+        static let canvasHandleTarget: CGFloat = 30
+        /// A colour-label swatch printed inside a badge row, where it sits
+        /// beside 10-point text rather than being clicked.
+        static let badgeSwatch: CGFloat = 8
     }
 
     enum Radius {
@@ -586,10 +594,28 @@ enum RAWBadgeTone: Equatable {
     }
 }
 
+/// How much of its tone a badge spends. `solid` fills with the tone and
+/// reverses the text out of it; `soft` is a tint wash for a marker that
+/// annotates a row rather than declaring a state.
+enum RAWBadgeProminence {
+    case solid
+    case soft
+}
+
+/// Badge scale. `compact` is the 10-point chip used on thumbnails and in
+/// lists; `prominent` matches the 12-point pane headers, so a chip that sits
+/// in a workspace header row does not read a size smaller than the header.
+enum RAWBadgeEmphasis {
+    case compact
+    case prominent
+}
+
 struct RAWStateBadge: View {
     let text: String
     var systemImage: String?
     var tone: RAWBadgeTone = .neutral
+    var prominence: RAWBadgeProminence = .solid
+    var emphasis: RAWBadgeEmphasis = .compact
 
     var body: some View {
         HStack(spacing: RAWDeskTokens.Spacing.xSmall) {
@@ -600,17 +626,47 @@ struct RAWStateBadge: View {
             Text(text)
                 .lineLimit(1)
         }
-        .font(RAWDeskTokens.Typography.badge)
-        .padding(.horizontal, RAWDeskTokens.Spacing.xSmall)
+        .font(font)
+        .padding(.horizontal, horizontalPadding)
         .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
-        .foregroundStyle(tone.foreground)
+        .foregroundStyle(foreground)
         .background(
-            tone.background.opacity(tone == .neutral ? 1 : 0.9),
+            background,
             in: RoundedRectangle(
                 cornerRadius: RAWDeskTokens.Radius.control
             )
         )
         .accessibilityElement(children: .combine)
+    }
+
+    private var font: Font {
+        emphasis == .prominent
+            ? RAWDeskTokens.Typography.sectionHeader
+            : RAWDeskTokens.Typography.badge
+    }
+
+    private var horizontalPadding: CGFloat {
+        emphasis == .prominent
+            ? RAWDeskTokens.Spacing.small
+            : RAWDeskTokens.Spacing.xSmall
+    }
+
+    private var foreground: Color {
+        // A tint wash is far too light to reverse white text out of, so `soft`
+        // keeps the normal text colour and lets the wash carry the tone.
+        prominence == .soft
+            ? RAWDeskTokens.ColorToken.textPrimary
+            : tone.foreground
+    }
+
+    private var background: Color {
+        switch prominence {
+        case .solid:
+            return tone.background
+                .opacity(tone == .neutral ? 1 : 0.9)
+        case .soft:
+            return tone.background.opacity(0.16)
+        }
     }
 }
 
@@ -1769,35 +1825,41 @@ struct RAWReviewControls: View {
             ) { label in
                 let isActive =
                     asset.userState.colorLabel == label
-                RoundedRectangle(
-                    cornerRadius: RAWDeskTokens.Radius.control
+                // The same swatch the filter row and the label-set editor
+                // draw, so a colour label is one mark everywhere.
+                ColorLabelSwatch(
+                    label: label,
+                    size: swatch
                 )
-                .fill(label.swatchColor)
-                .frame(width: swatch, height: swatch)
                 .overlay {
                     if isActive {
-                        RoundedRectangle(
-                            cornerRadius:
-                                RAWDeskTokens.Radius.control
-                        )
-                        .strokeBorder(
-                            RAWDeskTokens.ColorToken
-                                .textPrimary,
-                            lineWidth: 1.5
-                        )
-                        // Sits just outside the swatch so the fill colour
-                        // stays readable underneath the ring.
-                        .padding(
-                            -RAWDeskTokens.Spacing.xSmall / 2
-                        )
+                        // A ring rather than the swatch's own checkmark: at
+                        // nine points the glyph is too small to read, and the
+                        // ring sits just outside the fill so the colour stays
+                        // legible underneath it.
+                        Circle()
+                            .strokeBorder(
+                                RAWDeskTokens.ColorToken
+                                    .textPrimary,
+                                lineWidth: 1.5
+                            )
+                            .padding(
+                                -RAWDeskTokens.Spacing.xSmall
+                                    / 2
+                            )
                     }
                 }
+                .contentShape(Circle())
                 .onTapGesture {
                     library.setColorLabel(
                         isActive ? .none : label,
                         for: asset.id
                     )
                 }
+                // `ColorLabelSwatch` hides itself from accessibility, so the
+                // swatch has to be declared an element in its own right
+                // before anything can be said about it.
+                .accessibilityElement()
                 .help(
                     library.colorLabelName(for: label)
                 )
@@ -1817,6 +1879,40 @@ struct RAWReviewControls: View {
         .accessibilityElement(children: .contain)
     }
 
+}
+
+/// A handle the user drags directly on the photograph. Crop corners, Remove
+/// targets, and Guided Upright endpoints each drew their own dot at a
+/// different size, rim, and hit target, so the same gesture felt like three
+/// different controls. Callers supply the fill and rim colour and attach
+/// `.position` and the gesture themselves.
+struct RAWCanvasHandle: View {
+    var fill: Color = .white
+    var stroke: Color = .black.opacity(0.75)
+
+    var body: some View {
+        Circle()
+            .fill(fill)
+            .frame(
+                width: RAWDeskTokens.Size.canvasHandle,
+                height: RAWDeskTokens.Size.canvasHandle
+            )
+            .overlay {
+                Circle()
+                    .strokeBorder(stroke, lineWidth: 1.5)
+                    // The photograph underneath can be any colour; the drop
+                    // shadow is what keeps the rim readable on a light one.
+                    .shadow(
+                        color: .black.opacity(0.7),
+                        radius: 1
+                    )
+            }
+            .frame(
+                width: RAWDeskTokens.Size.canvasHandleTarget,
+                height: RAWDeskTokens.Size.canvasHandleTarget
+            )
+            .contentShape(Circle())
+    }
 }
 
 struct RAWInlineMessage: View {

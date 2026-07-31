@@ -84,56 +84,6 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var developWorkspaceContent: some View {
-        VSplitView {
-            Group {
-                if library.isScanning,
-                   library.assets.isEmpty {
-                    WorkspaceLoadingView(
-                        title: "Loading photos…"
-                    )
-                } else if library.selectedAsset == nil {
-                    WorkspaceEmptyView(
-                        hasOpenFolder:
-                            library.rootURL != nil,
-                        onOpenFolder:
-                            library.openFolderPicker
-                    )
-                } else {
-                    ImagePreviewView(
-                        viewer: viewer,
-                        asset: library.selectedAsset,
-                        onCropChange: updateCrop,
-                        onGuidedUprightGuidesChange:
-                            updateGuidedUprightGuides,
-                        onSpotRemovalChange:
-                            updateSpotRemoval,
-                        onBrushStrokeCommit:
-                            appendBrushStroke,
-                        onObjectMaskPoint:
-                            addObjectMask,
-                        onPointColorSample:
-                            addPointColorSample,
-                        onMaskColorRangeSample:
-                            addMaskColorRangeSample
-                    )
-                }
-            }
-            .frame(minHeight: 360)
-            .background(RAWDeskTokens.ColorToken.canvas)
-
-            DevelopFilmstripView(library: library)
-                .frame(
-                    minHeight: 132,
-                    idealHeight: 148,
-                    maxHeight: 168
-                )
-        }
-        .frame(minWidth: 560)
-        .background(RAWDeskTokens.ColorToken.canvas)
-    }
-
-    @ViewBuilder
     private var keyboardHandler: KeyboardHandler {
         KeyboardHandler(
             onPrev: { library.selectPrevious() },
@@ -210,7 +160,27 @@ struct ContentView: View {
                     return
                 }
                 showWorkspace(.develop)
-            }
+            },
+            // C, N, Shift-R and backslash used to be menu key equivalents.
+            // AppKit dispatches those before the key window's first responder
+            // sees the keystroke, so they fired while the user was typing a
+            // keyword or a filename. Routing them through this handler puts
+            // them behind the same isEditingText guard as every other bare
+            // photo shortcut. The gates mirror each menu item's own disabled
+            // condition so the keys stay inert in exactly the same situations.
+            canToggleCompare: library.compareState != nil
+                || library.canStartCompare,
+            onToggleCompare: { library.toggleCompare() },
+            canToggleSurvey: library.surveyState != nil
+                || library.canStartSurvey,
+            onToggleSurvey: { library.toggleSurvey() },
+            canToggleReference: library.referenceState != nil
+                || library.canStartReference,
+            onToggleReference: {
+                library.toggleReferenceView()
+            },
+            canToggleOriginal: library.surveyState == nil,
+            onToggleOriginal: { viewer.toggleOriginal() },
         )
     }
 
@@ -1573,52 +1543,6 @@ struct ContentView: View {
     }
 }
 
-private struct WorkspaceLoadingView: View {
-    let title: String
-
-    var body: some View {
-        RAWEmptyState(
-            title: title,
-            indicator: .progress,
-            message: "RAWDesk is reading the folder locally."
-        )
-        .background(RAWDeskTokens.ColorToken.canvas)
-    }
-}
-
-private struct WorkspaceEmptyView: View {
-    let hasOpenFolder: Bool
-    let onOpenFolder: () -> Void
-
-    var body: some View {
-        RAWEmptyState(
-            title:
-                hasOpenFolder
-                ? "No Photos Here"
-                : "Open a Photo Folder",
-            systemImage:
-                hasOpenFolder
-                ? "photo.stack"
-                : "folder",
-            message:
-                hasOpenFolder
-                ? "Choose another folder or change the Library filters."
-                : "RAWDesk works locally with the photos already on this Mac."
-        ) {
-            Button(action: onOpenFolder) {
-                Label(
-                    "Open Folder…",
-                    systemImage: "folder"
-                )
-            }
-            .buttonStyle(.borderedProminent)
-            .rawPrimaryButtonHeight()
-            .keyboardShortcut("o")
-        }
-        .background(RAWDeskTokens.ColorToken.canvas)
-    }
-}
-
 /// The Navigator thumbnail: the developed preview the viewer already holds, so
 /// it reflects live edits without decoding anything extra.
 private struct DevelopNavigatorPreview: View {
@@ -1683,45 +1607,12 @@ private struct DevelopSidebarView: View {
         return name.isEmpty ? url.path : name
     }
 
-    private func zoomPreset(
-        _ title: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(RAWDeskTokens.Typography.metadata)
-                .foregroundStyle(
-                    RAWDeskTokens.ColorToken.textPrimary
-                )
-                .padding(
-                    .horizontal,
-                    RAWDeskTokens.Spacing.small
-                )
-                .frame(
-                    minHeight: RAWDeskTokens.Size.iconTarget
-                )
-                .background(
-                    RAWDeskTokens.ColorToken.controlElevated,
-                    in: RoundedRectangle(
-                        cornerRadius:
-                            RAWDeskTokens.Radius.control
-                    )
-                )
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(
-            title == "Fit"
-                ? "Fit the photo to the window"
-                : "View at actual pixel size"
-        )
-    }
-
     var body: some View {
         List {
-            // A Navigator is a preview with zoom presets, not a caption. The
-            // section used to hold only text, which left the name "Navigator"
-            // describing something that could not navigate.
+            // Zoom lives in one place: the canvas status bar directly under the
+            // photograph, which also reports the live zoom percentage. This
+            // section briefly carried its own Fit and 100% buttons, which put
+            // the same two commands on screen twice in Develop.
             Section("Navigator") {
                 if let asset = selectedAsset {
                     VStack(
@@ -1731,21 +1622,6 @@ private struct DevelopSidebarView: View {
                         DevelopNavigatorPreview(
                             image: viewer.image
                         )
-                        // Zoom presets read as controls, not as blue links.
-                        // A List renders a plain Button as accent-coloured
-                        // text, which put two hyperlinks under the preview.
-                        HStack(
-                            spacing:
-                                RAWDeskTokens.Spacing.xSmall
-                        ) {
-                            zoomPreset("Fit") {
-                                viewer.transform.fit()
-                            }
-                            zoomPreset("100%") {
-                                viewer.transform.actualSize()
-                            }
-                            Spacer(minLength: 0)
-                        }
                         // The extension already states the format, so the
                         // separate format line only repeats it. RAW files keep
                         // the note because "ARW · RAW" is not obvious from the
@@ -1767,7 +1643,7 @@ private struct DevelopSidebarView: View {
                     }
                     .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
                 } else {
-                    Text("No photo selected")
+                    Text("No Photo Selected")
                         .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
                 }
             }
@@ -1840,7 +1716,7 @@ private struct DevelopSidebarView: View {
 
             Section("History") {
                 if selectedAsset == nil {
-                    Text("No photo selected")
+                    Text("No Photo Selected")
                         .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
                 } else {
                     Label(
@@ -1893,55 +1769,9 @@ private struct DevelopSidebarView: View {
                 }
             }
 
-            if let asset = selectedAsset {
-                Section("Versions") {
-                    Button {
-                        library.createVersion(
-                            for: asset.id
-                        )
-                    } label: {
-                        Label(
-                            "Create Version",
-                            systemImage:
-                                "plus.square.on.square"
-                        )
-                    }
-
-                    ForEach(
-                        asset.userState.versions
-                            .reversed()
-                    ) { version in
-                        Button {
-                            library.applyVersion(
-                                version.id,
-                                to: asset.id
-                            )
-                            syncViewer()
-                        } label: {
-                            VStack(
-                                alignment: .leading,
-                                spacing: RAWDeskTokens.Spacing.xSmall
-                            ) {
-                                Text(version.name)
-                                Text(
-                                    version.createdAt
-                                        .formatted(
-                                            date:
-                                                .abbreviated,
-                                            time:
-                                                .shortened
-                                        )
-                                )
-                                .font(RAWDeskTokens.Typography.badge)
-                                .foregroundStyle(
-                                    RAWDeskTokens.ColorToken
-                                        .textSecondary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            // Versions are saved and restored in the Develop inspector, beside
+            // the adjustments that produce them. This sidebar held a second,
+            // poorer copy of the same list.
 
             Section("Folders") {
                 if let rootURL = library.rootURL {
@@ -1983,15 +1813,6 @@ private struct DevelopSidebarView: View {
         // beside the toolbar buttons and once in the module picker.
     }
 
-    private func syncViewer() {
-        guard let asset = library.selectedAsset else {
-            return
-        }
-        viewer.updateAdjustments(
-            asset.userState.adjustments,
-            for: asset.id
-        )
-    }
 }
 
 struct DevelopFilmstripStatus: Equatable {
@@ -2038,79 +1859,21 @@ struct DevelopFilmstripView: View {
     @ObservedObject var library: LibraryViewModel
     @Environment(\.accessibilityReduceMotion)
     private var reduceMotion
-    private let cellWidth: CGFloat = 116
+    /// A cell is a square thumbnail plus one line of filename:
+    /// `ThumbnailCellView` pads every edge by `xSmall`, separates the two by
+    /// `xSmall`, and sets the name at `metadataSize`. So the box it needs is
+    /// always its own width plus that chrome.
+    private let labelAllowance: CGFloat = 18
+    /// The strip is drag-resizable, so its cell width is continuous. Decoding
+    /// at that exact width would give every drag increment its own thumbnail
+    /// cache entry, so the request is rounded up to a step instead.
+    private let decodeStep: CGFloat = 32
+    /// Below this the thumbnail is no longer a thumbnail. It is only reached
+    /// if the strip is given less room than its own minimum token.
+    private let minimumCellHeight: CGFloat = 56
 
     var body: some View {
-        let status = DevelopFilmstripStatus(
-            selectedCount:
-                library.selectedIDs.count,
-            isAutoSyncEnabled:
-                library.isAutoSyncEnabled,
-            isFilterActive:
-                library.filter.isActive,
-            filteredCount:
-                library.filtered.count
-        )
-        VStack(spacing: 0) {
-            HStack(spacing: RAWDeskTokens.Spacing.small) {
-                Label(
-                    "Filmstrip",
-                    systemImage: "film.stack"
-                )
-                .font(RAWDeskTokens.Typography.sectionHeader)
-                Spacer()
-                if let selectionText =
-                    status.selectionText {
-                    Text(
-                        selectionText
-                    )
-                    .accessibilityLabel(
-                        status
-                            .selectionAccessibilityLabel
-                            ?? selectionText
-                    )
-                }
-                Text(
-                    status.autoSyncText
-                )
-                .foregroundStyle(
-                    status.isAutoSyncActive
-                        ? RAWDeskTokens.ColorToken.selection
-                        : RAWDeskTokens.ColorToken
-                            .textSecondary
-                )
-                .accessibilityLabel(
-                    status
-                        .autoSyncAccessibilityLabel
-                )
-                if status.showsFilterBadge {
-                    Label(
-                        "Filtered",
-                        systemImage:
-                            "line.3.horizontal.decrease"
-                    )
-                    .labelStyle(.titleAndIcon)
-                    .accessibilityLabel(
-                        "Filter applied"
-                    )
-                }
-                Text(
-                    status.photoCountText
-                )
-            }
-            .font(RAWDeskTokens.Typography.metadata)
-            .foregroundStyle(
-                RAWDeskTokens.ColorToken.textSecondary
-            )
-            .lineLimit(1)
-            .padding(.horizontal, RAWDeskTokens.Spacing.small)
-            .frame(
-                height:
-                    RAWDeskTokens.Size.iconTarget
-            )
-
-            Divider()
-
+        Group {
             if library.filtered.isEmpty {
                 Text("No photos match the current filter.")
                     .font(RAWDeskTokens.Typography.control)
@@ -2120,35 +1883,55 @@ struct DevelopFilmstripView: View {
                         maxHeight: .infinity
                     )
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal) {
-                        LazyHStack(spacing: RAWDeskTokens.Spacing.small) {
-                            ForEach(
-                                library.filtered
-                            ) { asset in
-                                filmstripCell(asset)
+                // The cell is measured from the room the scroll view actually
+                // gets. A fixed cell box was taller than the strip can ever be
+                // at any drag position, and a horizontal ScrollView clips
+                // rather than scrolls vertically, so every cell lost its
+                // filename and part of the image.
+                GeometryReader { geometry in
+                    let cellHeight = max(
+                        minimumCellHeight,
+                        geometry.size.height
+                            - RAWDeskTokens.Spacing.xSmall * 2
+                    )
+                    let cellWidth = cellHeight - labelAllowance
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal) {
+                            LazyHStack(
+                                alignment: .top,
+                                spacing: RAWDeskTokens.Spacing.small
+                            ) {
+                                ForEach(
+                                    library.filtered
+                                ) { asset in
+                                    filmstripCell(
+                                        asset,
+                                        width: cellWidth,
+                                        height: cellHeight
+                                    )
                                     .id(asset.id)
+                                }
                             }
+                            .padding(
+                                .horizontal,
+                                RAWDeskTokens.Spacing.small
+                            )
+                            .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
                         }
-                        .padding(
-                            .horizontal,
-                            RAWDeskTokens.Spacing.small
-                        )
-                        .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
-                    }
-                    .onAppear {
-                        scrollToSelection(
-                            proxy: proxy,
-                            animated: false
-                        )
-                    }
-                    .onChange(
-                        of: library.selectionID
-                    ) { _, _ in
-                        scrollToSelection(
-                            proxy: proxy,
-                            animated: !reduceMotion
-                        )
+                        .onAppear {
+                            scrollToSelection(
+                                proxy: proxy,
+                                animated: false
+                            )
+                        }
+                        .onChange(
+                            of: library.selectionID
+                        ) { _, _ in
+                            scrollToSelection(
+                                proxy: proxy,
+                                animated: !reduceMotion
+                            )
+                        }
                     }
                 }
             }
@@ -2160,7 +1943,9 @@ struct DevelopFilmstripView: View {
     }
 
     private func filmstripCell(
-        _ asset: PhotoAsset
+        _ asset: PhotoAsset,
+        width: CGFloat,
+        height: CGFloat
     ) -> some View {
         ThumbnailCellView(
             asset: asset,
@@ -2172,7 +1957,7 @@ struct DevelopFilmstripView: View {
                 library.selectionID == asset.id,
             compareRole: nil,
             surveyRole: nil,
-            pixelSize: cellWidth * 2,
+            pixelSize: decodePixelSize(for: width),
             duplicateGroupNumber:
                 library.duplicateGroupNumber(
                     for: asset.id
@@ -2213,10 +1998,7 @@ struct DevelopFilmstripView: View {
                 )
             }
         )
-        .frame(
-            width: cellWidth,
-            height: cellWidth + 18
-        )
+        .frame(width: width, height: height)
         .contentShape(Rectangle())
         .onTapGesture {
             let modifiers =
@@ -2232,6 +2014,14 @@ struct DevelopFilmstripView: View {
                     modifiers.contains(.shift)
             )
         }
+    }
+
+    private func decodePixelSize(
+        for width: CGFloat
+    ) -> CGFloat {
+        let requested = width * 2
+        return (requested / decodeStep)
+            .rounded(.up) * decodeStep
     }
 
     private func scrollToSelection(

@@ -126,10 +126,26 @@ struct EditingInspectorView: View {
                         }
                         .frame(maxWidth: .infinity)
 
-                        Text(selectedMixerChannel.name)
-                            .font(RAWDeskTokens.Typography.sectionHeader)
-                            .foregroundStyle(mixerColor(selectedMixerChannel))
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        // The channel reset sits on the channel's own row. The
+                        // section header already resets the whole mixer, so a
+                        // second whole-section reset at the bottom of the body
+                        // only made two "Reset" affordances mean two things.
+                        HStack {
+                            Text(selectedMixerChannel.name)
+                                .font(RAWDeskTokens.Typography.sectionHeader)
+                                .foregroundStyle(mixerColor(selectedMixerChannel))
+
+                            Spacer()
+
+                            Button("Reset \(selectedMixerChannel.name)") {
+                                resetColorMixerChannel(selectedMixerChannel, for: asset)
+                            }
+                            .rawSecondaryTextAction()
+                            .font(RAWDeskTokens.Typography.metadata)
+                            .disabled(
+                                asset.userState.adjustments.colorMixer[selectedMixerChannel].isNeutral
+                            )
+                        }
 
                         AdjustmentSlider(
                             title: "Hue",
@@ -155,24 +171,6 @@ struct EditingInspectorView: View {
                                 for: asset
                             )
                         )
-
-                        HStack {
-                            Button("Reset \(selectedMixerChannel.name)") {
-                                resetColorMixerChannel(selectedMixerChannel, for: asset)
-                            }
-                            .disabled(
-                                asset.userState.adjustments.colorMixer[selectedMixerChannel].isNeutral
-                            )
-
-                            Spacer()
-
-                            Button("Reset All") {
-                                resetColorMixer(for: asset)
-                            }
-                            .disabled(asset.userState.adjustments.colorMixer.isNeutral)
-                        }
-                        .rawSecondaryTextAction()
-                        .font(RAWDeskTokens.Typography.metadata)
                     }
 
                     adjustmentGroup("Point Color", isExpanded: $pointColorExpanded) {
@@ -354,14 +352,18 @@ struct EditingInspectorView: View {
                                 }
                                 .font(RAWDeskTokens.Typography.sectionHeader)
 
+                                // A checkbox, like every other per-object
+                                // preview overlay. The switch is reserved for
+                                // global state — Soft Proof, Auto Sync, and a
+                                // section's own enable.
                                 Toggle(
                                     "Visualize Range",
                                     isOn: pointColorVisualizationBinding(
                                         point.id
                                     )
                                 )
-                                .toggleStyle(.switch)
-                                .controlSize(.small)
+                                .toggleStyle(.checkbox)
+                                .font(RAWDeskTokens.Typography.metadata)
 
                                 HStack {
                                     Button("Reset Point") {
@@ -409,7 +411,21 @@ struct EditingInspectorView: View {
                                 }
                             Text(selectedGradingRegion.name)
                                 .font(RAWDeskTokens.Typography.sectionHeader)
+
                             Spacer()
+
+                            // Scoped to the region named beside it; the whole
+                            // section is reset from the section header.
+                            Button("Reset \(selectedGradingRegion.name)") {
+                                resetColorGradingRegion(selectedGradingRegion, for: asset)
+                            }
+                            .rawSecondaryTextAction()
+                            .font(RAWDeskTokens.Typography.metadata)
+                            .disabled(
+                                asset.userState.adjustments.colorGrading[
+                                    selectedGradingRegion
+                                ].isNeutral
+                            )
                         }
 
                         AdjustmentSlider(
@@ -453,26 +469,6 @@ struct EditingInspectorView: View {
                             title: "Balance",
                             value: colorGradingGlobalBinding(\.balance, for: asset)
                         )
-
-                        HStack {
-                            Button("Reset \(selectedGradingRegion.name)") {
-                                resetColorGradingRegion(selectedGradingRegion, for: asset)
-                            }
-                            .disabled(
-                                asset.userState.adjustments.colorGrading[
-                                    selectedGradingRegion
-                                ].isNeutral
-                            )
-
-                            Spacer()
-
-                            Button("Reset All") {
-                                resetColorGrading(for: asset)
-                            }
-                            .disabled(asset.userState.adjustments.colorGrading.isNeutral)
-                        }
-                        .rawSecondaryTextAction()
-                        .font(RAWDeskTokens.Typography.metadata)
                     }
 
                     adjustmentGroup("Calibration", isExpanded: $calibrationExpanded) {
@@ -538,14 +534,6 @@ struct EditingInspectorView: View {
                                 for: asset
                             )
                         )
-
-                        Button("Reset Calibration") {
-                            resetCalibration(for: asset)
-                        }
-                        .rawSecondaryTextAction()
-                        .font(RAWDeskTokens.Typography.metadata)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .disabled(asset.userState.adjustments.calibration.isNeutral)
                     }
 
                     adjustmentGroup("Masks", isExpanded: $masksExpanded) {
@@ -667,11 +655,16 @@ struct EditingInspectorView: View {
                                         }
                                         .padding(.horizontal, RAWDeskTokens.Spacing.small)
                                         .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
+                                        // One weight for every selectable list
+                                        // row in this panel — masks, repairs,
+                                        // and both operation lists. They had
+                                        // drifted to four different alphas of
+                                        // the same two colours.
                                         .background(
                                             selectedMaskID == mask.id
                                                 || (selectedMaskID == nil && mask.id == masks.first?.id)
-                                                ? RAWDeskTokens.ColorToken.selection.opacity(0.18)
-                                                : RAWDeskTokens.ColorToken.textSecondary.opacity(0.08),
+                                                ? RAWDeskTokens.ColorToken.selection.opacity(0.16)
+                                                : RAWDeskTokens.ColorToken.textSecondary.opacity(0.07),
                                             in: RoundedRectangle(cornerRadius: RAWDeskTokens.Radius.control)
                                         )
                                     }
@@ -713,6 +706,10 @@ struct EditingInspectorView: View {
                                 .toggleStyle(.checkbox)
                                 .font(RAWDeskTokens.Typography.metadata)
 
+                                // Painting stays beside the overlay toggle,
+                                // above the adjustments: the tool row can only
+                                // reach the photo's *first* brush mask, so for
+                                // any other one this button is the only way in.
                                 if selectedMask.kind == .brush {
                                     Button {
                                         viewer.setBrushEditing(
@@ -737,151 +734,13 @@ struct EditingInspectorView: View {
                                             : RAWDeskTokens.ColorToken.textSecondary
                                     )
                                     .controlSize(.small)
-
-                                    MaskValueSlider(
-                                        title: "Brush Size",
-                                        value: maskGeometryBinding(
-                                            maskID: selectedMask.id,
-                                            keyPath: \.size,
-                                            for: asset
-                                        ),
-                                        range: 0.005...0.25,
-                                        step: 0.005,
-                                        resetValue: 0.04,
-                                        format: percentFormat,
-                                        parse: percentParse
-                                    )
-                                    MaskValueSlider(
-                                        title: "Feather",
-                                        value: maskGeometryBinding(
-                                            maskID: selectedMask.id,
-                                            keyPath: \.feather,
-                                            for: asset
-                                        ),
-                                        range: 0...1,
-                                        step: 0.01,
-                                        resetValue: 0.65,
-                                        format: percentFormat,
-                                        parse: percentParse
-                                    )
-                                    MaskValueSlider(
-                                        title: "Flow",
-                                        value: maskGeometryBinding(
-                                            maskID: selectedMask.id,
-                                            keyPath: \.flow,
-                                            for: asset
-                                        ),
-                                        range: 0...1,
-                                        step: 0.01,
-                                        resetValue: 1,
-                                        format: percentFormat,
-                                        parse: percentParse
-                                    )
-
-                                    HStack {
-                                        Button("Undo Stroke") {
-                                            undoLastBrushStroke(selectedMask.id, for: asset)
-                                        }
-                                        .disabled(selectedMask.strokes.isEmpty)
-
-                                        Spacer()
-
-                                        Button("Clear") {
-                                            clearBrushStrokes(selectedMask.id, for: asset)
-                                        }
-                                        .disabled(selectedMask.strokes.isEmpty)
-                                    }
-                                    .rawSecondaryTextAction()
-                                    .font(RAWDeskTokens.Typography.metadata)
-                                } else if selectedMask.kind != .subject
-                                            && selectedMask.kind != .object
-                                            && selectedMask.kind != .sky {
-                                    Group {
-                                        MaskValueSlider(
-                                            title: "Horizontal",
-                                            value: maskGeometryBinding(
-                                                maskID: selectedMask.id,
-                                                keyPath: \.centerX,
-                                                for: asset
-                                            ),
-                                            range: 0...1,
-                                            step: 0.01,
-                                            resetValue: 0.5,
-                                            format: percentFormat,
-                                            parse: percentParse
-                                        )
-                                        MaskValueSlider(
-                                            title: "Vertical",
-                                            value: maskGeometryBinding(
-                                                maskID: selectedMask.id,
-                                                keyPath: \.centerY,
-                                                for: asset
-                                            ),
-                                            range: 0...1,
-                                            step: 0.01,
-                                            resetValue: 0.5,
-                                            format: percentFormat,
-                                            parse: percentParse
-                                        )
-                                        MaskValueSlider(
-                                            title: "Size",
-                                            value: maskGeometryBinding(
-                                                maskID: selectedMask.id,
-                                                keyPath: \.size,
-                                                for: asset
-                                            ),
-                                            range: 0.02...1.5,
-                                            step: 0.01,
-                                            resetValue: 0.55,
-                                            format: percentFormat,
-                                            parse: percentParse
-                                        )
-                                        MaskValueSlider(
-                                            title: "Feather",
-                                            value: maskGeometryBinding(
-                                                maskID: selectedMask.id,
-                                                keyPath: \.feather,
-                                                for: asset
-                                            ),
-                                            range: 0...1,
-                                            step: 0.01,
-                                            resetValue: 0.5,
-                                            format: percentFormat,
-                                            parse: percentParse
-                                        )
-                                        if selectedMask.kind == .linear {
-                                            MaskValueSlider(
-                                                title: "Angle",
-                                                value: maskGeometryBinding(
-                                                    maskID: selectedMask.id,
-                                                    keyPath: \.angle,
-                                                    for: asset
-                                                ),
-                                                range: -180...180,
-                                                step: 1,
-                                                resetValue: 0,
-                                                format: { String(format: "%+.0f°", $0) }
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Label(
-                                        selectedMask.kind == .object
-                                            ? "Object selected locally with Apple Vision. No upload required."
-                                            : selectedMask.kind == .sky
-                                            ? "Sky selected locally. Embedded camera mattes are preferred when available."
-                                            : "Subject selected locally with Apple Vision. No upload required.",
-                                        systemImage: "lock.shield"
-                                    )
-                                    .font(RAWDeskTokens.Typography.metadata)
-                                    .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
-                                maskPrimaryOperationsSection(selectedMask, for: asset)
-
-                                maskRangeSection(selectedMask, for: asset)
-
+                                // What the mask does to the photo comes first.
+                                // How the mask is built — its shape, its tool
+                                // operations, its ranges — follows underneath,
+                                // so reaching Exposure no longer means
+                                // scrolling past two nested editors.
                                 Divider()
 
                                 Text("Light")
@@ -984,8 +843,6 @@ struct EditingInspectorView: View {
                                     )
                                 )
 
-                                maskPointColorSection(selectedMask, for: asset)
-
                                 Divider()
 
                                 Text("Effects")
@@ -1043,6 +900,14 @@ struct EditingInspectorView: View {
                                     range: 0...100
                                 )
 
+                                maskPointColorSection(selectedMask, for: asset)
+
+                                maskShapeSection(selectedMask, for: asset)
+
+                                maskPrimaryOperationsSection(selectedMask, for: asset)
+
+                                maskRangeSection(selectedMask, for: asset)
+
                                 HStack {
                                     Button("Reset Mask") {
                                         resetMask(selectedMask.id, for: asset)
@@ -1092,17 +957,25 @@ struct EditingInspectorView: View {
                                 .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
+                            // A live toggle, like Paint Mask and Draw Guides.
+                            // It used to relabel itself "Repair Tool Active"
+                            // and disable, which left a button-shaped label
+                            // that could not put the tool away again.
                             Button {
-                                let selectedID = viewer.selectedSpotRemovalID
-                                    ?? spots.first?.id
-                                viewer.setRemovalEditing(
-                                    true,
-                                    selectedSpotID: selectedID
-                                )
+                                if viewer.isRemovalEditing {
+                                    viewer.setRemovalEditing(false)
+                                } else {
+                                    let selectedID = viewer.selectedSpotRemovalID
+                                        ?? spots.first?.id
+                                    viewer.setRemovalEditing(
+                                        true,
+                                        selectedSpotID: selectedID
+                                    )
+                                }
                             } label: {
                                 Label(
                                     viewer.isRemovalEditing
-                                        ? "Repair Tool Active"
+                                        ? "Done Repairing"
                                         : "Edit Repairs on Photo",
                                     systemImage: viewer.isRemovalEditing
                                         ? "checkmark"
@@ -1113,7 +986,6 @@ struct EditingInspectorView: View {
                             .buttonStyle(.bordered)
                             .tint(viewer.isRemovalEditing ? RAWDeskTokens.ColorToken.selection : RAWDeskTokens.ColorToken.textSecondary)
                             .controlSize(.small)
-                            .disabled(viewer.isRemovalEditing)
 
                             VStack(spacing: RAWDeskTokens.Spacing.xSmall) {
                                 ForEach(spots) { spot in
@@ -1133,8 +1005,8 @@ struct EditingInspectorView: View {
                                             viewer.selectedSpotRemovalID == spot.id
                                                 || (viewer.selectedSpotRemovalID == nil
                                                     && spot.id == spots.first?.id)
-                                                ? RAWDeskTokens.ColorToken.selection.opacity(0.18)
-                                                : RAWDeskTokens.ColorToken.textSecondary.opacity(0.08),
+                                                ? RAWDeskTokens.ColorToken.selection.opacity(0.16)
+                                                : RAWDeskTokens.ColorToken.textSecondary.opacity(0.07),
                                             in: RoundedRectangle(cornerRadius: RAWDeskTokens.Radius.control)
                                         )
                                     }
@@ -1500,36 +1372,29 @@ struct EditingInspectorView: View {
                             value: opticsBinding(\.greenDefringe, for: asset),
                             range: 0...100
                         )
-
-                        Button {
-                            var updated = asset.userState.adjustments
-                            updated.optics = .neutral
-                            library.setAdjustments(
-                                updated,
-                                for: asset.id,
-                                coalescingHistory: false
-                            )
-                            viewer.updateAdjustments(updated, for: asset.id)
-                        } label: {
-                            Label("Reset Optics", systemImage: "camera.aperture")
-                        }
-                        .rawSecondaryTextAction()
-                        .font(RAWDeskTokens.Typography.metadata)
-                        .disabled(asset.userState.adjustments.optics.isNeutral)
                     }
 
                     adjustmentGroup("Crop & Geometry", isExpanded: $geometryExpanded) {
                         Button {
-                            // Through the shared entry point, not straight at
-                            // the viewer: `activateDevelopTool` is what
-                            // snapshots the adjustments Escape restores and
-                            // announces the tool. Starting the crop tool from
-                            // here used to skip both, so cancelling reverted
-                            // nothing.
-                            onActivateTool(.crop)
+                            if viewer.isCropEditing {
+                                // The crop is committed as it is dragged, so
+                                // leaving the tool is all Done has to do. The
+                                // button used to disable itself here and read
+                                // "Crop Tool Active" — a dead label wearing a
+                                // button's chrome.
+                                viewer.setCropEditing(false)
+                            } else {
+                                // Through the shared entry point, not straight
+                                // at the viewer: `activateDevelopTool` is what
+                                // snapshots the adjustments Escape restores and
+                                // announces the tool. Starting the crop tool
+                                // from here used to skip both, so cancelling
+                                // reverted nothing.
+                                onActivateTool(.crop)
+                            }
                         } label: {
                             Label(
-                                viewer.isCropEditing ? "Crop Tool Active" : "Edit Crop on Photo",
+                                viewer.isCropEditing ? "Done Cropping" : "Edit Crop on Photo",
                                 systemImage: viewer.isCropEditing ? "checkmark" : "crop"
                             )
                             .frame(maxWidth: .infinity)
@@ -1537,7 +1402,6 @@ struct EditingInspectorView: View {
                         .buttonStyle(.bordered)
                         .tint(viewer.isCropEditing ? RAWDeskTokens.ColorToken.selection : RAWDeskTokens.ColorToken.textSecondary)
                         .controlSize(.small)
-                        .disabled(viewer.isCropEditing)
 
                         let guides =
                             asset.userState.adjustments.geometry
@@ -1855,28 +1719,6 @@ struct EditingInspectorView: View {
                             isOn: geometryBoolBinding(\.constrainCrop, for: asset)
                         )
                         .font(RAWDeskTokens.Typography.metadata)
-
-                        Button {
-                            var updated = asset.userState.adjustments
-                            updated.crop = .fullFrame
-                            updated.straighten = 0
-                            updated.geometry = .neutral
-                            library.setAdjustments(
-                                updated,
-                                for: asset.id,
-                                coalescingHistory: false
-                            )
-                            viewer.updateAdjustments(updated, for: asset.id)
-                        } label: {
-                            Label("Reset Crop & Geometry", systemImage: "crop.rotate")
-                        }
-                        .rawSecondaryTextAction()
-                        .font(RAWDeskTokens.Typography.metadata)
-                        .disabled(
-                            crop.isFullFrame
-                                && asset.userState.adjustments.straighten == 0
-                                && asset.userState.adjustments.geometry.isNeutral
-                        )
                     }
 
                     adjustmentGroup(
@@ -1939,14 +1781,12 @@ struct EditingInspectorView: View {
                                 title: "Detail",
                                 value: binding(\.sharpeningDetail, for: asset),
                                 range: 0...100,
-                                resetValue: 25,
-                                format: { String(format: "%.0f", $0) }
+                                resetValue: 25
                             )
                             AdjustmentSlider(
                                 title: "Masking",
                                 value: binding(\.sharpeningMasking, for: asset),
-                                range: 0...100,
-                                format: { String(format: "%.0f", $0) }
+                                range: 0...100
                             )
                         }
                         .disabled(asset.userState.adjustments.sharpening == 0)
@@ -1966,14 +1806,12 @@ struct EditingInspectorView: View {
                                 title: "Luminance Detail",
                                 value: binding(\.noiseReductionDetail, for: asset),
                                 range: 0...100,
-                                resetValue: 50,
-                                format: { String(format: "%.0f", $0) }
+                                resetValue: 50
                             )
                             AdjustmentSlider(
                                 title: "Luminance Contrast",
                                 value: binding(\.noiseReductionContrast, for: asset),
-                                range: 0...100,
-                                format: { String(format: "%.0f", $0) }
+                                range: 0...100
                             )
                         }
                         .disabled(asset.userState.adjustments.noiseReduction == 0)
@@ -1988,15 +1826,13 @@ struct EditingInspectorView: View {
                                 title: "Color Detail",
                                 value: binding(\.colorNoiseDetail, for: asset),
                                 range: 0...100,
-                                resetValue: 50,
-                                format: { String(format: "%.0f", $0) }
+                                resetValue: 50
                             )
                             AdjustmentSlider(
                                 title: "Color Smoothness",
                                 value: binding(\.colorNoiseSmoothness, for: asset),
                                 range: 0...100,
-                                resetValue: 50,
-                                format: { String(format: "%.0f", $0) }
+                                resetValue: 50
                             )
                         }
                         .disabled(asset.userState.adjustments.colorNoiseReduction == 0)
@@ -2192,14 +2028,13 @@ struct EditingInspectorView: View {
 
                 Spacer(minLength: 4)
 
+                // Quiet secondary text like every other reset in the panel.
+                // Accent-coloured, these two read as links in the one part of
+                // the inspector that never scrolls away.
                 Button("Reset All") {
                     resetAllAdjustments(for: asset)
                 }
-                .buttonStyle(.plain)
-                .font(
-                    RAWDeskTokens.Typography.metadata
-                )
-                .foregroundStyle(RAWDeskTokens.ColorToken.selection)
+                .rawSecondaryTextAction()
                 .disabled(
                     asset.userState.adjustments.isNeutral
                 )
@@ -2284,11 +2119,7 @@ struct EditingInspectorView: View {
                 Button("Reset") {
                     resetDevelopmentProfile(for: asset)
                 }
-                .buttonStyle(.plain)
-                .font(
-                    RAWDeskTokens.Typography.metadata
-                )
-                .foregroundStyle(RAWDeskTokens.ColorToken.selection)
+                .rawSecondaryTextAction()
                 .disabled(settings.isDefault)
                 .help("Reset Profile")
             }
@@ -2831,14 +2662,6 @@ struct EditingInspectorView: View {
         viewer.updateAdjustments(updated, for: asset.id)
     }
 
-    private func resetColorMixer(for asset: PhotoAsset) {
-        var updated = library.selectedAsset?.userState.adjustments
-            ?? asset.userState.adjustments
-        updated.colorMixer = .neutral
-        library.setAdjustments(updated, for: asset.id, coalescingHistory: false)
-        viewer.updateAdjustments(updated, for: asset.id)
-    }
-
     private func mixerColor(_ channel: ColorMixerChannel) -> Color {
         switch channel {
         case .red: return .red
@@ -3041,14 +2864,6 @@ struct EditingInspectorView: View {
         viewer.updateAdjustments(updated, for: asset.id)
     }
 
-    private func resetColorGrading(for asset: PhotoAsset) {
-        var updated = library.selectedAsset?.userState.adjustments
-            ?? asset.userState.adjustments
-        updated.colorGrading = .neutral
-        library.setAdjustments(updated, for: asset.id, coalescingHistory: false)
-        viewer.updateAdjustments(updated, for: asset.id)
-    }
-
     private func calibrationBinding(
         _ keyPath: WritableKeyPath<CalibrationAdjustments, Double>,
         for asset: PhotoAsset
@@ -3062,14 +2877,6 @@ struct EditingInspectorView: View {
                 $0.calibration[keyPath: keyPath] = $1
             }
         )
-    }
-
-    private func resetCalibration(for asset: PhotoAsset) {
-        var updated = library.selectedAsset?.userState.adjustments
-            ?? asset.userState.adjustments
-        updated.calibration = .neutral
-        library.setAdjustments(updated, for: asset.id, coalescingHistory: false)
-        viewer.updateAdjustments(updated, for: asset.id)
     }
 
     private func selectedDevelopmentProfile(
@@ -3166,6 +2973,169 @@ struct EditingInspectorView: View {
         }
     }
 
+    /// The mask's own shape controls — what it is made of, not what it does
+    /// to the photo. They sit under the adjustments, where Lightroom keeps
+    /// brush size and feather, instead of in front of them.
+    @ViewBuilder
+    private func maskShapeSection(
+        _ mask: LocalAdjustmentMask,
+        for asset: PhotoAsset
+    ) -> some View {
+        Divider()
+
+        // A subject, sky, or object mask has no shape to edit here, only a
+        // note about where its selection came from, so it gets no header.
+        if mask.kind != .subject
+            && mask.kind != .object
+            && mask.kind != .sky {
+            Text("Shape")
+                .font(RAWDeskTokens.Typography.badge)
+                .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+        if mask.kind == .brush {
+            MaskValueSlider(
+                title: "Brush Size",
+                value: maskGeometryBinding(
+                    maskID: mask.id,
+                    keyPath: \.size,
+                    for: asset
+                ),
+                range: 0.005...0.25,
+                step: 0.005,
+                resetValue: 0.04,
+                format: percentFormat,
+                parse: percentParse
+            )
+            MaskValueSlider(
+                title: "Feather",
+                value: maskGeometryBinding(
+                    maskID: mask.id,
+                    keyPath: \.feather,
+                    for: asset
+                ),
+                range: 0...1,
+                step: 0.01,
+                resetValue: 0.65,
+                format: percentFormat,
+                parse: percentParse
+            )
+            MaskValueSlider(
+                title: "Flow",
+                value: maskGeometryBinding(
+                    maskID: mask.id,
+                    keyPath: \.flow,
+                    for: asset
+                ),
+                range: 0...1,
+                step: 0.01,
+                resetValue: 1,
+                format: percentFormat,
+                parse: percentParse
+            )
+
+            HStack {
+                Button("Undo Stroke") {
+                    undoLastBrushStroke(mask.id, for: asset)
+                }
+                .disabled(mask.strokes.isEmpty)
+
+                Spacer()
+
+                Button("Clear") {
+                    clearBrushStrokes(mask.id, for: asset)
+                }
+                .disabled(mask.strokes.isEmpty)
+            }
+            .rawSecondaryTextAction()
+            .font(RAWDeskTokens.Typography.metadata)
+        } else if mask.kind != .subject
+                    && mask.kind != .object
+                    && mask.kind != .sky {
+            Group {
+                MaskValueSlider(
+                    title: "Horizontal",
+                    value: maskGeometryBinding(
+                        maskID: mask.id,
+                        keyPath: \.centerX,
+                        for: asset
+                    ),
+                    range: 0...1,
+                    step: 0.01,
+                    resetValue: 0.5,
+                    format: percentFormat,
+                    parse: percentParse
+                )
+                MaskValueSlider(
+                    title: "Vertical",
+                    value: maskGeometryBinding(
+                        maskID: mask.id,
+                        keyPath: \.centerY,
+                        for: asset
+                    ),
+                    range: 0...1,
+                    step: 0.01,
+                    resetValue: 0.5,
+                    format: percentFormat,
+                    parse: percentParse
+                )
+                MaskValueSlider(
+                    title: "Size",
+                    value: maskGeometryBinding(
+                        maskID: mask.id,
+                        keyPath: \.size,
+                        for: asset
+                    ),
+                    range: 0.02...1.5,
+                    step: 0.01,
+                    resetValue: 0.55,
+                    format: percentFormat,
+                    parse: percentParse
+                )
+                MaskValueSlider(
+                    title: "Feather",
+                    value: maskGeometryBinding(
+                        maskID: mask.id,
+                        keyPath: \.feather,
+                        for: asset
+                    ),
+                    range: 0...1,
+                    step: 0.01,
+                    resetValue: 0.5,
+                    format: percentFormat,
+                    parse: percentParse
+                )
+                if mask.kind == .linear {
+                    MaskValueSlider(
+                        title: "Angle",
+                        value: maskGeometryBinding(
+                            maskID: mask.id,
+                            keyPath: \.angle,
+                            for: asset
+                        ),
+                        range: -180...180,
+                        step: 1,
+                        resetValue: 0,
+                        format: { String(format: "%+.0f°", $0) }
+                    )
+                }
+            }
+        } else {
+            Label(
+                mask.kind == .object
+                    ? "Object selected locally with Apple Vision. No upload required."
+                    : mask.kind == .sky
+                    ? "Sky selected locally. Embedded camera mattes are preferred when available."
+                    : "Subject selected locally with Apple Vision. No upload required.",
+                systemImage: "lock.shield"
+            )
+            .font(RAWDeskTokens.Typography.metadata)
+            .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     @ViewBuilder
     private func maskPrimaryOperationsSection(
         _ mask: LocalAdjustmentMask,
@@ -3179,27 +3149,24 @@ struct EditingInspectorView: View {
 
             Spacer()
 
+            // Kind only. Committing to a combination up front cost a menu
+            // tier for the one property the editor below changes in a single
+            // click, so operations are created additive and re-combined there.
             Menu {
-                ForEach(MaskCombinationMode.allCases) { combination in
-                    Menu {
-                        ForEach(LocalMaskKind.allCases) { kind in
-                            Button {
-                                addMaskPrimaryOperation(
-                                    kind,
-                                    combination: combination,
-                                    to: mask.id,
-                                    for: asset
-                                )
-                            } label: {
-                                Label(kind.name, systemImage: kind.systemImage)
-                            }
-                        }
+                ForEach(LocalMaskKind.allCases) { kind in
+                    Button {
+                        addMaskPrimaryOperation(
+                            kind,
+                            combination: .add,
+                            to: mask.id,
+                            for: asset
+                        )
                     } label: {
-                        Label(combination.name, systemImage: combination.systemImage)
+                        Label(kind.name, systemImage: kind.systemImage)
                     }
                 }
             } label: {
-                Label("Add Tool", systemImage: "plus")
+                Label("Add", systemImage: "plus")
             }
             .menuStyle(.borderlessButton)
             .controlSize(.small)
@@ -3248,7 +3215,7 @@ struct EditingInspectorView: View {
                                 .frame(width: 14)
                             Image(systemName: operation.kind.systemImage)
                                 .frame(width: 14)
-                            Text("\(operation.combination.name) \(operation.name)")
+                            Text(operation.name)
                                 .lineLimit(1)
                             Spacer()
                             if !operation.isEnabled {
@@ -3270,8 +3237,9 @@ struct EditingInspectorView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(
-                        Text("\(operation.combination.name) \(operation.name)")
+                    .accessibilityLabel(Text(operation.name))
+                    .accessibilityValue(
+                        Text("\(operation.combination.name) \(operation.kind.name)")
                     )
                 }
             }
@@ -3315,7 +3283,7 @@ struct EditingInspectorView: View {
             .font(RAWDeskTokens.Typography.metadata)
 
             Picker(
-                "Combination",
+                "Combine",
                 selection: maskPrimaryOperationCombinationBinding(
                     maskID: mask.id,
                     operationID: operation.id,
@@ -3326,6 +3294,7 @@ struct EditingInspectorView: View {
                     Text(combination.name).tag(combination)
                 }
             }
+            .labelsHidden()
             .pickerStyle(.segmented)
             .controlSize(.small)
 
@@ -3751,54 +3720,50 @@ struct EditingInspectorView: View {
 
             Spacer()
 
+            // Kind only, additive, like the primary tool menu above. The
+            // combination is one click in the editor below.
             Menu {
-                ForEach(MaskCombinationMode.allCases) { combination in
-                    Menu {
-                        Button {
-                            viewer.setMaskColorRangePicking(
-                                true,
-                                selectedMaskID: mask.id,
-                                combination: combination
-                            )
-                        } label: {
-                            Label(
-                                "Color Range…",
-                                systemImage: MaskRangeKind.color.systemImage
-                            )
-                        }
-
-                        Button {
-                            addLuminanceRange(
-                                to: mask.id,
-                                combination: combination,
-                                for: asset
-                            )
-                        } label: {
-                            Label(
-                                "Luminance Range",
-                                systemImage: MaskRangeKind.luminance.systemImage
-                            )
-                        }
-
-                        Button {
-                            addDepthRange(
-                                to: mask.id,
-                                combination: combination,
-                                for: asset
-                            )
-                        } label: {
-                            Label(
-                                "Depth Range…",
-                                systemImage: MaskRangeKind.depth.systemImage
-                            )
-                        }
-                        .disabled(isGeneratingDepthRange)
-                    } label: {
-                        Label(combination.name, systemImage: combination.systemImage)
-                    }
+                Button {
+                    viewer.setMaskColorRangePicking(
+                        true,
+                        selectedMaskID: mask.id,
+                        combination: .add
+                    )
+                } label: {
+                    Label(
+                        "Color Range…",
+                        systemImage: MaskRangeKind.color.systemImage
+                    )
                 }
+
+                Button {
+                    addLuminanceRange(
+                        to: mask.id,
+                        combination: .add,
+                        for: asset
+                    )
+                } label: {
+                    Label(
+                        "Luminance Range",
+                        systemImage: MaskRangeKind.luminance.systemImage
+                    )
+                }
+
+                Button {
+                    addDepthRange(
+                        to: mask.id,
+                        combination: .add,
+                        for: asset
+                    )
+                } label: {
+                    Label(
+                        "Depth Range…",
+                        systemImage: MaskRangeKind.depth.systemImage
+                    )
+                }
+                .disabled(isGeneratingDepthRange)
             } label: {
-                Label("Add Operation", systemImage: "plus")
+                Label("Add", systemImage: "plus")
             }
             .menuStyle(.borderlessButton)
             .controlSize(.small)
@@ -3854,16 +3819,23 @@ struct EditingInspectorView: View {
                     Button {
                         viewer.selectMaskRangeOperation(operation.id)
                     } label: {
+                        // Same row shape as a primary operation: how it
+                        // combines, what it is, what it is called, then status.
                         HStack(spacing: RAWDeskTokens.Spacing.small) {
+                            Image(systemName: operation.combination.systemImage)
+                                .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
+                                .frame(width: 14)
                             Image(systemName: operation.kind.systemImage)
-                                .frame(width: 15)
+                                .frame(width: 14)
                             Text(operation.name)
                                 .lineLimit(1)
                             Spacer()
-                            Image(systemName: operation.combination.systemImage)
-                                .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
                             if !operation.isEnabled {
                                 Image(systemName: "eye.slash")
+                                    .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
+                            }
+                            if operation.inverted {
+                                Image(systemName: "circle.lefthalf.filled")
                                     .foregroundStyle(RAWDeskTokens.ColorToken.textSecondary)
                             }
                         }
@@ -3872,7 +3844,7 @@ struct EditingInspectorView: View {
                         .background(
                             selectedOperation?.id == operation.id
                                 ? RAWDeskTokens.ColorToken.selection.opacity(0.16)
-                                : RAWDeskTokens.ColorToken.textSecondary.opacity(0.06),
+                                : RAWDeskTokens.ColorToken.textSecondary.opacity(0.07),
                             in: RoundedRectangle(cornerRadius: RAWDeskTokens.Radius.control)
                         )
                     }
@@ -3897,7 +3869,7 @@ struct EditingInspectorView: View {
                     Spacer()
 
                     Toggle(
-                        "On",
+                        "Enabled",
                         isOn: maskRangeEnabledBinding(
                             maskID: mask.id,
                             operationID: selectedOperation.id,
@@ -3931,6 +3903,7 @@ struct EditingInspectorView: View {
                         Text(combination.name).tag(combination)
                     }
                 }
+                .labelsHidden()
                 .pickerStyle(.segmented)
                 .controlSize(.small)
 
@@ -5710,23 +5683,8 @@ private struct ToneCurveEditor: View {
     @Binding var curve: ToneCurve
     let isMixed: Bool
     @State private var selectedRegion: ToneCurveRegion = .midtones
-    @FocusState private var valueFieldFocused: Bool
 
     var body: some View {
-        let sliderPresentation =
-            RAWSliderPresentation(
-                value: curve[selectedRegion],
-                isMixed: isMixed,
-                format: curveOutputFormat
-            )
-        let fieldPresentation =
-            RAWSliderPresentation(
-                value: curve[selectedRegion],
-                isMixed: isMixed,
-                isFieldFocused:
-                    valueFieldFocused,
-                format: curveOutputFormat
-            )
         VStack(spacing: RAWDeskTokens.Spacing.small) {
             GeometryReader { proxy in
                 Canvas { context, size in
@@ -5824,104 +5782,32 @@ private struct ToneCurveEditor: View {
                 }
             }
 
-            VStack(spacing: RAWDeskTokens.Spacing.xSmall) {
-                HStack {
-                    Text(selectedRegion.name)
-                        .font(RAWDeskTokens.Typography.metadata)
-                    Spacer()
-                    TextField(
-                        "",
-                        value: Binding(
-                            get: { curve[selectedRegion] },
-                            set: {
-                                curve[selectedRegion] =
-                                    min(1, max(0, $0))
-                            }
-                        ),
-                        format: .percent.precision(
-                            .fractionLength(0)
-                        )
-                    )
-                    .rawNumericField(width: 58)
-                    .focused($valueFieldFocused)
-                    .opacity(
-                        fieldPresentation
-                            .showsMixedMarker
-                            ? 0
-                            : 1
-                    )
-                    .overlay {
-                        if fieldPresentation
-                            .showsMixedMarker {
-                            Text("—")
-                                .font(
-                                    RAWDeskTokens.Typography
-                                        .numeric
-                                )
-                                .frame(
-                                    maxWidth: .infinity,
-                                    alignment: .trailing
-                                )
-                                .padding(.trailing, RAWDeskTokens.Spacing.small)
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                        }
+            // The panel's own slider row, not a stock Slider with a boxed
+            // field stacked above it: this section sits directly under Light
+            // and Color, and had none of their origin tick, hover-boxed value
+            // field, or double-click reset.
+            AdjustmentSlider(
+                title: selectedRegion.name,
+                value: Binding(
+                    get: { curve[selectedRegion] },
+                    set: {
+                        curve[selectedRegion] =
+                            min(1, max(0, $0))
                     }
-                    .accessibilityLabel(
-                        Text(
-                            "\(selectedRegion.name) curve output"
-                        )
-                    )
-                    .accessibilityValue(
-                        Text(
-                            fieldPresentation
-                                .accessibilityValue
-                        )
-                    )
+                ),
+                range: 0...1,
+                step: 0.01,
+                // Each region's neutral output is its own input level, so the
+                // origin tick and double-click reset follow the region.
+                resetValue: selectedRegion.neutralOutput,
+                isMixed: isMixed,
+                format: { "\(Int(($0 * 100).rounded()))%" },
+                // The display scales by 100, so reading back divides by it.
+                parse: { text in
+                    RAWSliderRow.defaultParse(text)
+                        .map { $0 / 100 }
                 }
-
-                Slider(
-                    value: Binding(
-                        get: { curve[selectedRegion] },
-                        set: { curve[selectedRegion] = $0 }
-                    ),
-                    in: 0...1,
-                    step: 0.01
-                )
-                .rawKeyboardAdjustableSlider(
-                    value: Binding(
-                        get: { curve[selectedRegion] },
-                        set: { curve[selectedRegion] = $0 }
-                    ),
-                    in: 0...1,
-                    step: 0.01
-                )
-                .rawSliderTarget()
-                .controlSize(.small)
-                .tint(
-                    sliderPresentation
-                        .usesNeutralTint
-                        ? RAWDeskTokens.ColorToken
-                            .textSecondary
-                        : RAWDeskTokens.ColorToken.selection
-                )
-                .accessibilityLabel(Text("\(selectedRegion.name) curve output"))
-                .accessibilityValue(
-                    Text(
-                        sliderPresentation
-                            .accessibilityValue
-                    )
-                )
-            }
-
-            Button {
-                curve = .neutral
-            } label: {
-                Label("Reset Tone Curve", systemImage: "arrow.counterclockwise")
-            }
-            .rawSecondaryTextAction()
-            .font(RAWDeskTokens.Typography.metadata)
-            .disabled(curve.isNeutral && !isMixed)
+            )
         }
     }
 
@@ -5954,12 +5840,6 @@ private struct ToneCurveEditor: View {
         case .highlights: return "H"
         case .white: return "W"
         }
-    }
-
-    private func curveOutputFormat(
-        _ value: Double
-    ) -> String {
-        "\(Int((value * 100).rounded())) percent"
     }
 }
 
@@ -6004,7 +5884,11 @@ private struct AdjustmentSlider: View {
     let step: Double
     let resetValue: Double
     let isMixed: Bool
-    let format: (Double) -> String
+    /// Resolved in `body` rather than defaulted here: the sign convention
+    /// follows the range, and a default argument cannot see one.
+    let format: ((Double) -> String)?
+    /// Supplied whenever `format` scales the displayed number.
+    let parse: ((String) -> Double?)?
 
     init(
         title: String,
@@ -6013,9 +5897,8 @@ private struct AdjustmentSlider: View {
         step: Double = 1,
         resetValue: Double = 0,
         isMixed: Bool = false,
-        format: @escaping (Double) -> String = {
-            String(format: "%+.0f", $0)
-        }
+        format: ((Double) -> String)? = nil,
+        parse: ((String) -> Double?)? = nil
     ) {
         self.title = title
         self.value = value
@@ -6024,6 +5907,7 @@ private struct AdjustmentSlider: View {
         self.resetValue = resetValue
         self.isMixed = isMixed
         self.format = format
+        self.parse = parse
     }
 
     init(
@@ -6032,9 +5916,7 @@ private struct AdjustmentSlider: View {
         range: ClosedRange<Double> = -100...100,
         step: Double = 1,
         resetValue: Double = 0,
-        format: @escaping (Double) -> String = {
-            String(format: "%+.0f", $0)
-        }
+        format: ((Double) -> String)? = nil
     ) {
         self.init(
             title: title,
@@ -6055,8 +5937,19 @@ private struct AdjustmentSlider: View {
             step: step,
             resetValue: resetValue,
             isMixed: isMixed,
-            format: format
+            format: format ?? defaultFormat,
+            parse: parse
         )
+    }
+
+    /// A leading sign only means something on a slider that has both signs.
+    /// On a 0…100 row the plus is decoration, and it was printed on some of
+    /// them but not the neighbours that happened to pass a format of their
+    /// own — "+40" for Sharpening Amount above a plain "40" for Detail.
+    private func defaultFormat(_ value: Double) -> String {
+        range.lowerBound < 0
+            ? String(format: "%+.0f", value)
+            : String(format: "%.0f", value)
     }
 }
 

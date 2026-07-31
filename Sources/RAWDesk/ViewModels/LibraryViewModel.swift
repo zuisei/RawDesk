@@ -5236,10 +5236,6 @@ public final class LibraryViewModel: ObservableObject {
         }
     }
 
-    public func refreshCatalogOverview() {
-        refreshCatalogSummary()
-    }
-
     private func refreshPhotoStacks() {
         do {
             photoStacks = try catalogStore.photoStacks()

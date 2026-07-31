@@ -139,11 +139,6 @@ struct RAWDeskApp: App {
 
                 Divider()
 
-                Button("Show Location on Map") {
-                    library?.showMap()
-                }
-                .disabled(library?.selectionID == nil)
-
                 Button("Remove Location") {
                     library?.removeLocationFromSelection()
                 }
@@ -162,18 +157,10 @@ struct RAWDeskApp: App {
                 )
             }
 
+            // Reaching the map is the ⌘3 module command's job, next to ⌘1 and
+            // ⌘2. This menu carries only what the map itself owns — tracklogs
+            // and saved locations — so the module has one name and one key.
             CommandMenu("Map") {
-                Button("Show Map") {
-                    library?.showMap()
-                }
-                .keyboardShortcut(
-                    "3",
-                    modifiers: [.command, .option]
-                )
-                .disabled(library == nil)
-
-                Divider()
-
                 Button("Load GPX Tracklog…") {
                     library?.loadGPXTracklogPicker()
                 }
@@ -499,7 +486,6 @@ struct RAWDeskApp: App {
                 ) {
                     library?.toggleCompare()
                 }
-                .keyboardShortcut("c", modifiers: [])
                 .disabled(
                     library?.compareState == nil
                         && !(library?.canStartCompare ?? false)
@@ -512,7 +498,6 @@ struct RAWDeskApp: App {
                 ) {
                     library?.toggleSurvey()
                 }
-                .keyboardShortcut("n", modifiers: [])
                 .disabled(
                     library?.surveyState == nil
                         && !(library?.canStartSurvey ?? false)
@@ -525,7 +510,6 @@ struct RAWDeskApp: App {
                 ) {
                     library?.toggleReferenceView()
                 }
-                .keyboardShortcut("r", modifiers: [.shift])
                 .disabled(
                     library?.referenceState == nil
                         && !(library?.canStartReference ?? false)
@@ -561,7 +545,6 @@ struct RAWDeskApp: App {
                     )
                     .disabled(library?.surveyState != nil)
                 Button("Toggle Original") { viewer?.toggleOriginal() }
-                    .keyboardShortcut("\\", modifiers: [])
                     .disabled(library?.surveyState != nil)
                 Button(
                     viewer?.softProofSettings.isEnabled == true

@@ -1,5 +1,22 @@
 # RAWDesk UI仕様・改善ブリーフ
 
+> **これは2026-07-29時点の設計ブリーフであり、現在の製品仕様ではない。**
+> 以降の作業で製品が変わっている。本書と実装が食い違う場合、**実装が正しい**。
+>
+> 本書の記述と現状の主な差分:
+>
+> - **Peopleモジュールは削除された**（2026-07-31）。本書は Library / Develop /
+>   People / Map の4モジュール構成を前提にしているが、現在は
+>   **Library / Develop / Map の3つ**。顔認識の実装は `Archive/People/` に退避
+>   してある（同ディレクトリのREADMEに理由と復元手順）。
+> - module pickerはpillをやめ、現在のモジュールだけ明るいテキストで示す形になった。
+> - Soft Proofは3箇所から右パネル1箇所へ統合された。
+> - 開発用の「Use Legacy Layout」切替と、それが守っていた並行レイアウトは削除された。
+>
+> 現状の根拠は `Docs/RAWDesk_UI_LIGHTROOM_ALIGNMENT_PROPOSAL.md` と
+> `Docs/RAWDesk_PRO_AUDIT_2026-07-31.md`、および git 履歴を参照。
+
+
 Claude / Fable 5 に渡すための現行仕様整理と、UI改善提案の依頼書
 
 - 対象アプリ: RAWDesk

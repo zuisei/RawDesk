@@ -520,14 +520,11 @@ struct ImagePreviewView: View {
     }
 
     private func previewBadge(_ text: String, systemImage: String) -> some View {
-        Label(text, systemImage: systemImage)
-            .font(RAWDeskTokens.Typography.badge)
-            .padding(.horizontal, RAWDeskTokens.Spacing.small)
-            .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
-            .background(
-                RAWDeskTokens.ColorToken.controlElevated,
-                in: Capsule()
-            )
+        RAWStateBadge(
+            text: text,
+            systemImage: systemImage,
+            tone: .neutral
+        )
     }
 
     private func finishActiveTool() {
@@ -907,16 +904,7 @@ private struct SpotRemovalOverlayView: View {
         label: String,
         hint: String
     ) -> some View {
-        Circle()
-            .fill(fill)
-            .frame(width: 16, height: 16)
-            .overlay {
-                Circle()
-                    .strokeBorder(stroke, lineWidth: 2)
-                    .shadow(color: .black.opacity(0.7), radius: 1)
-            }
-            .frame(width: 34, height: 34)
-            .contentShape(Circle())
+        RAWCanvasHandle(fill: fill, stroke: stroke)
             .position(point)
             .accessibilityLabel(Text(label))
             .accessibilityHint(Text(hint))
@@ -1107,43 +1095,34 @@ private struct GuidedUprightOverlayView: View {
         at point: CGPoint,
         number: Int
     ) -> some View {
-        Circle()
-            .fill(guideColor(guide.orientation))
-            .frame(width: 11, height: 11)
-            .overlay {
-                Circle()
-                    .strokeBorder(.black.opacity(0.82), lineWidth: 1.5)
-                    .shadow(
-                        color: .black.opacity(0.65),
-                        radius: 1
-                    )
-            }
-            .frame(width: 30, height: 30)
-            .contentShape(Circle())
-            .position(point)
-            .gesture(
-                DragGesture(
-                    minimumDistance: 0,
-                    coordinateSpace: .named(
-                        "guidedUprightOverlay"
-                    )
-                )
-                    .onChanged { value in
-                        updateEndpoint(
-                            of: guide,
-                            isStart: isStart,
-                            to: value.location
-                        )
-                    }
-            )
-            .accessibilityLabel(
-                Text(
-                    "Guide \(number) \(isStart ? "start" : "end") point"
+        RAWCanvasHandle(
+            fill: guideColor(guide.orientation),
+            stroke: .black.opacity(0.82)
+        )
+        .position(point)
+        .gesture(
+            DragGesture(
+                minimumDistance: 0,
+                coordinateSpace: .named(
+                    "guidedUprightOverlay"
                 )
             )
-            .accessibilityHint(
-                Text("Drag to align the guide with the photo")
+                .onChanged { value in
+                    updateEndpoint(
+                        of: guide,
+                        isStart: isStart,
+                        to: value.location
+                    )
+                }
+        )
+        .accessibilityLabel(
+            Text(
+                "Guide \(number) \(isStart ? "start" : "end") point"
             )
+        )
+        .accessibilityHint(
+            Text("Drag to align the guide with the photo")
+        )
     }
 
     private func updateEndpoint(
@@ -1328,14 +1307,7 @@ private struct CropOverlayView: View {
     }
 
     private func handleView(_ handle: CropHandle, at point: CGPoint) -> some View {
-        Circle()
-            .fill(.white)
-            .frame(width: 10, height: 10)
-            .overlay {
-                Circle().stroke(.black.opacity(0.75), lineWidth: 1)
-            }
-            .frame(width: 28, height: 28)
-            .contentShape(Circle())
+        RAWCanvasHandle()
             .position(point)
             .gesture(resizeGesture(handle))
             .accessibilityLabel(Text("\(handleName(handle)) crop handle"))

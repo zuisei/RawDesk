@@ -1,6 +1,39 @@
 import SwiftUI
 import AppKit
 
+/// The grid's own geometry, kept out of the view so the arithmetic can be
+/// read and checked. Both numbers used to be guesses: the column count
+/// divided by a 12-point gutter that exists nowhere in the layout, and the
+/// cell height allowed 22 points for a label row that needs more.
+enum ThumbnailGridLayout {
+    /// The grid is inset by `small` on each edge and its items are separated
+    /// by `xSmall`, so `n` columns occupy `n * cellSize + (n - 1) * xSmall`.
+    /// Solving that for `n` is what stops the last column being dropped and
+    /// its width handed back to the other cells as dead margin.
+    static func columnCount(
+        availableWidth: CGFloat,
+        cellSize: CGFloat
+    ) -> Int {
+        let content =
+            availableWidth - RAWDeskTokens.Spacing.small * 2
+        let gap = RAWDeskTokens.Spacing.xSmall
+        return max(
+            1,
+            Int((content + gap) / (cellSize + gap))
+        )
+    }
+
+    /// The square thumbnail plus the filename beneath it: the cell's own
+    /// xSmall padding above and below, the xSmall gap before the label, and
+    /// one 11-point metadata line with its leading.
+    static func cellHeight(cellSize: CGFloat) -> CGFloat {
+        cellSize
+            + RAWDeskTokens.Spacing.medium
+            + RAWDeskTokens.Typography.metadataSize
+            + RAWDeskTokens.Spacing.xxSmall
+    }
+}
+
 struct ThumbnailGridView: View {
     @ObservedObject var library: LibraryViewModel
     @Binding private var scrollPositionID: PhotoAsset.ID?
@@ -36,10 +69,11 @@ struct ThumbnailGridView: View {
             } else {
                 GeometryReader { geo in
                     ScrollView {
-                        let columns = max(
-                            1,
-                            Int(geo.size.width / (cellSize + 12))
-                        )
+                        let columns =
+                            ThumbnailGridLayout.columnCount(
+                                availableWidth: geo.size.width,
+                                cellSize: cellSize
+                            )
                         LazyVGrid(
                             columns: Array(
                                 repeating: GridItem(
@@ -64,16 +98,12 @@ struct ThumbnailGridView: View {
                 }
                 .overlay(alignment: .topTrailing) {
                     if library.selectedIDs.count > 1 {
-                        Text("\(library.selectedIDs.count) selected")
-                            .font(RAWDeskTokens.Typography.sectionHeader)
-                            .padding(.horizontal, RAWDeskTokens.Spacing.small)
-                            .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
-                            .background(
-                                RAWDeskTokens.ColorToken
-                                    .controlElevated,
-                                in: Capsule()
-                            )
-                            .padding(RAWDeskTokens.Spacing.small)
+                        RAWStateBadge(
+                            text:
+                                "\(library.selectedIDs.count) selected",
+                            emphasis: .prominent
+                        )
+                        .padding(RAWDeskTokens.Spacing.small)
                     }
                 }
             }
@@ -141,7 +171,11 @@ struct ThumbnailGridView: View {
                 )
             }
         )
-        .frame(height: cellSize + 22)
+        .frame(
+            height: ThumbnailGridLayout.cellHeight(
+                cellSize: cellSize
+            )
+        )
         .contentShape(Rectangle())
         // Two independent recognizers, not an ExclusiveGesture. In an exclusive
         // pair the single tap is only evaluated once the double tap *fails*,

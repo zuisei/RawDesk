@@ -210,14 +210,29 @@ struct RAWLibrarySidebarView: View {
         }
     }
 
+    /// The catalog queries that have nowhere else to be reached from.
+    ///
+    /// Eleven always-present rows pushed Collections and Folders below the
+    /// fold. Picked, Rejected and Five Stars are gone because the Filter menu
+    /// one control bar away already says exactly that
+    /// (`LibraryFilter.flaggedOnly`, `.rejectedOnly`, Minimum Rating); With
+    /// Location and Without Location are gone because the Map module already
+    /// partitions on the same field. Edited and With Keywords stay — nothing
+    /// else in the app reaches them. Duplicates and Assisted Culling are
+    /// Services, and have always been listed there instead.
+    private static let catalogCollections:
+        [CatalogSmartCollection] = [
+            .allPhotos,
+            .recentlyAdded,
+            .quickCollection,
+            .edited,
+            .withKeywords,
+            .missingFiles,
+        ]
+
     @ViewBuilder
     private var catalogContents: some View {
-        ForEach(
-            CatalogSmartCollection.allCases.filter {
-                $0 != .assistedCulling
-                    && $0 != .exactDuplicates
-            }
-        ) { collection in
+        ForEach(Self.catalogCollections) { collection in
             Button {
                 library.showCatalog(collection)
             } label: {
@@ -318,6 +333,16 @@ struct RAWLibrarySidebarView: View {
             )
         }
 
+        // Lives here rather than under Auto Import: it governs what happens
+        // when a folder is opened, and opening a folder happens on this row.
+        Toggle(
+            "Include subfolders when opening",
+            isOn: $library.recursiveScan
+        )
+        .help(
+            "Open every photo beneath the chosen folder, not only the ones directly inside it"
+        )
+
         Button {
             library.openFolderPicker()
         } label: {
@@ -412,11 +437,6 @@ struct RAWLibrarySidebarView: View {
                         ?? progress.phase.name
                 )
             }
-
-            Toggle(
-                "Include subfolders when opening",
-                isOn: $library.recursiveScan
-            )
 
             HStack {
                 Button("Settings…") {
@@ -676,6 +696,14 @@ struct RAWLibrarySidebarView: View {
             @escaping () -> Content
     ) -> some View {
         DisclosureGroup {
+            // Where Auto Import already prints its own status. The collapsed
+            // row carries it as a tooltip; opened, it is spelled out here.
+            Text(status)
+                .font(RAWDeskTokens.Typography.metadata)
+                .foregroundStyle(
+                    RAWDeskTokens.ColorToken.textSecondary
+                )
+                .fixedSize(horizontal: false, vertical: true)
             if let progress {
                 ProgressView(value: progress)
                     .accessibilityLabel(
@@ -702,21 +730,18 @@ struct RAWLibrarySidebarView: View {
         status: String,
         count: Int
     ) -> some View {
+        // One line, like every other navigator row. The status line made each
+        // of the three Services rows twice the height of a Catalog row for a
+        // sentence that is unchanged most of the time; it is now the row's
+        // tooltip, and it is printed in full when the row is expanded.
         HStack(spacing: RAWDeskTokens.Spacing.small) {
             Image(systemName: systemImage)
                 .frame(width: 18)
-            VStack(alignment: .leading, spacing: RAWDeskTokens.Spacing.xSmall) {
-                Text(title)
-                Text(status)
-                    .font(
-                        RAWDeskTokens.Typography.metadata
-                    )
-                    .foregroundStyle(
-                        RAWDeskTokens.ColorToken
-                            .textSecondary
-                    )
-                    .lineLimit(1)
-            }
+            Text(title)
+                .lineLimit(1)
+                .accessibilityLabel(
+                    Text("\(title), \(status)")
+                )
             Spacer(minLength: 0)
             if count > 0 {
                 Text("\(count)")
@@ -730,6 +755,7 @@ struct RAWLibrarySidebarView: View {
                     .monospacedDigit()
             }
         }
+        .help(status)
     }
 
     private var duplicateStatus: String {

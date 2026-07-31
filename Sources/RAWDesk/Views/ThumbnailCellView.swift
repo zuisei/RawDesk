@@ -280,16 +280,24 @@ struct ThumbnailCellView: View {
         .allowsHitTesting(false)
     }
 
+    @ViewBuilder
     private var reviewStateLayer: some View {
-        VStack {
-            Spacer(minLength: 0)
-            VStack(spacing: RAWDeskTokens.Spacing.xSmall) {
+        // The scrim is there to keep the badges legible over a photograph. On
+        // a photo with nothing to report it was a black band across the bottom
+        // edge of the cell containing nothing, so it is drawn with the badges.
+        if hasReviewState {
+            VStack {
+                Spacer(minLength: 0)
                 HStack(spacing: RAWDeskTokens.Spacing.xSmall) {
+                    // Flags are glyphs, never glyph-plus-word — the same rule
+                    // the inspector's review controls follow. Each glyph
+                    // already carries its word as an accessibility label.
                     if asset.userState.flagged {
                         Label(
                             "Picked",
                             systemImage: "flag.fill"
                         )
+                        .labelStyle(.iconOnly)
                         .accessibilityLabel("Picked")
                     } else if asset.userState.rejected {
                         Label(
@@ -297,7 +305,32 @@ struct ThumbnailCellView: View {
                             systemImage:
                                 "xmark.circle.fill"
                         )
+                        .labelStyle(.iconOnly)
                         .accessibilityLabel("Rejected")
+                    }
+                    // An unrated photo shows nothing. Stating the absence of a
+                    // rating on every cell spends the badge row on no
+                    // information and competes with the thumbnail. The number
+                    // stays printed, unlike the flags: which rating it is is
+                    // the whole of what the badge has to say.
+                    if asset.userState.rating > 0 {
+                        Label(
+                            "\(asset.userState.rating)",
+                            systemImage: "star.fill"
+                        )
+                        .accessibilityLabel(
+                            "\(asset.userState.rating) of 5 stars"
+                        )
+                    }
+                    if asset.userState.colorLabel != .none {
+                        // The same swatch the inspector and the filter row
+                        // draw. The name is dropped: the colour is the label,
+                        // and it is spelled out in the cell's accessibility
+                        // description and its tooltip.
+                        ColorLabelSwatch(
+                            label: asset.userState.colorLabel,
+                            size: RAWDeskTokens.Size.badgeSwatch
+                        )
                     }
                     if asset.userState.favorite {
                         Image(systemName: "heart.fill")
@@ -315,47 +348,6 @@ struct ThumbnailCellView: View {
                                 "In a collection"
                             )
                     }
-                    Spacer(minLength: 0)
-                    if !asset.userState.adjustments.isNeutral {
-                        Label(
-                            "Edited",
-                            systemImage:
-                                "slider.horizontal.3"
-                        )
-                        .accessibilityLabel("Edited")
-                    }
-                }
-
-                HStack(spacing: RAWDeskTokens.Spacing.xSmall) {
-                    // An unrated photo shows nothing. Stating the absence of a
-                    // rating on every cell spends the badge row on no
-                    // information and competes with the thumbnail.
-                    if asset.userState.rating > 0 {
-                        Label(
-                            "\(asset.userState.rating)",
-                            systemImage: "star.fill"
-                        )
-                        .accessibilityLabel(
-                            "\(asset.userState.rating) of 5 stars"
-                        )
-                    }
-                    if asset.userState.colorLabel != .none {
-                        HStack(spacing: RAWDeskTokens.Spacing.xSmall) {
-                            Circle()
-                                .fill(
-                                    asset.userState
-                                        .colorLabel.swatchColor
-                                )
-                                .frame(width: 8, height: 8)
-                            Text(
-                                asset.userState
-                                    .colorLabel.name
-                            )
-                        }
-                        .accessibilityElement(
-                            children: .combine
-                        )
-                    }
                     if !asset.userState.keywords.isEmpty {
                         Image(systemName: "tag.fill")
                             .accessibilityLabel(
@@ -367,35 +359,83 @@ struct ThumbnailCellView: View {
                             .accessibilityLabel(
                                 "Suggested stack \(cullingStackNumber)"
                             )
-                    } else if let stackMembership,
-                              !stackMembership.isCollapsed,
-                              !stackMembership.isTop {
+                    } else if let membership =
+                        expandedStackPosition {
                         Text(
-                            "\(stackMembership.position)/\(stackMembership.photoCount)"
+                            "\(membership.position)/\(membership.photoCount)"
                         )
                         .accessibilityLabel(
-                            "Photo \(stackMembership.position) of \(stackMembership.photoCount) in stack"
+                            "Photo \(membership.position) of \(membership.photoCount) in stack"
                         )
                     }
                     Spacer(minLength: 0)
+                    if !asset.userState.adjustments.isNeutral {
+                        Label(
+                            "Edited",
+                            systemImage:
+                                "slider.horizontal.3"
+                        )
+                        .labelStyle(.iconOnly)
+                        .accessibilityLabel("Edited")
+                    }
                 }
-            }
-            .font(RAWDeskTokens.Typography.badge)
-            .foregroundStyle(RAWDeskTokens.ColorToken.textPrimary)
-            .padding(.horizontal, RAWDeskTokens.Spacing.xSmall)
-            .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
-            .background(
-                LinearGradient(
-                    colors: [
-                        .black.opacity(0.03),
-                        .black.opacity(0.82),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
+                .font(RAWDeskTokens.Typography.badge)
+                .foregroundStyle(RAWDeskTokens.ColorToken.textPrimary)
+                .padding(.horizontal, RAWDeskTokens.Spacing.xSmall)
+                .padding(.vertical, RAWDeskTokens.Spacing.xSmall)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            .black.opacity(0.03),
+                            .black.opacity(0.82),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
                 )
-            )
+            }
+            .allowsHitTesting(false)
         }
-        .allowsHitTesting(false)
+    }
+
+    /// A saved stack prints its position only on the members that do not
+    /// already carry the stack button in the top-left corner.
+    private var expandedStackPosition:
+        CatalogPhotoStackMembership? {
+        guard let stackMembership,
+              !stackMembership.isCollapsed,
+              !stackMembership.isTop else {
+            return nil
+        }
+        return stackMembership
+    }
+
+    /// How far the hover cluster sits above the bottom edge: enough to clear
+    /// the badge row, and no more. The row is one 10-point line inside its own
+    /// xSmall padding; with no badges there is no row and no scrim to clear.
+    private var quickActionBottomInset: CGFloat {
+        guard hasReviewState else {
+            return RAWDeskTokens.Spacing.xSmall
+        }
+        return RAWDeskTokens.Typography.badgeSize
+            + RAWDeskTokens.Spacing.small
+            + RAWDeskTokens.Spacing.xSmall
+    }
+
+    /// Every condition the badge row can draw, so the scrim never appears
+    /// without a badge and no badge ever appears without the scrim.
+    private var hasReviewState: Bool {
+        asset.userState.flagged
+            || asset.userState.rejected
+            || asset.userState.rating > 0
+            || asset.userState.colorLabel != .none
+            || asset.userState.favorite
+            || isInQuickCollection
+            || isInPhotoCollection
+            || !asset.userState.keywords.isEmpty
+            || cullingStackNumber != nil
+            || expandedStackPosition != nil
+            || !asset.userState.adjustments.isNeutral
     }
 
     @ViewBuilder
@@ -475,7 +515,7 @@ struct ThumbnailCellView: View {
                             RAWDeskTokens.Radius.control
                     )
                 )
-                .padding(.bottom, RAWDeskTokens.Size.primaryButtonHeight + RAWDeskTokens.Spacing.xSmall)
+                .padding(.bottom, quickActionBottomInset)
             }
         }
     }
@@ -663,9 +703,16 @@ struct ThumbnailCellView: View {
     }
 
     private func load() async {
-        image = nil
-        loadState = .loading
-        rawDecodeSource = nil
+        // Whatever is already on screen stays there while a re-decode runs.
+        // The thumbnail-size slider walks through a dozen pixel sizes in one
+        // drag and each one is a different cache key, so restarting this task
+        // used to blank every visible cell to a spinner for the whole drag.
+        // Rescaling the bitmap we have is what the user expects to see; the
+        // sharper decode replaces it when it lands.
+        if image == nil {
+            loadState = .loading
+            rawDecodeSource = nil
+        }
         let outcome = await loader.load(
             asset: asset,
             kind: .thumbnail(target: pixelSize)
@@ -686,6 +733,8 @@ struct ThumbnailCellView: View {
         guard !Task.isCancelled else { return }
         await MainActor.run {
             guard !Task.isCancelled else { return }
+            // Assigned even when nil: a reload that fails must drop the stale
+            // bitmap, or the failure state would sit behind a stale image.
             self.image = displayedImage
             self.loadState = outcome.state
             self.rawDecodeSource =

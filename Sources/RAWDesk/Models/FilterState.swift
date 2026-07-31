@@ -19,7 +19,10 @@ public enum LibraryFilter: String, CaseIterable, Codable, Sendable, Identifiable
         case .sonyARWOnly: return "Sony ARW Only"
         case .canonCR2Only: return "Canon CR2 Only"
         case .favoritesOnly: return "Favorites"
-        case .flaggedOnly: return "Flagged"
+        // "Picked" everywhere: the pick status, the sidebar collection, the
+        // cell badge and the inspector all call this state Picked, so the
+        // filter must not introduce a second name for it.
+        case .flaggedOnly: return "Picked"
         case .rejectedOnly: return "Rejected"
         case .errorsOnly: return "Loading Errors"
         }

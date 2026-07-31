@@ -271,20 +271,22 @@ struct MainToolbar: ToolbarContent {
                 .accessibilityLabel("Export selected photo")
             }
 
+            // Overflow only. Module switching is the principal control a few
+            // centimetres to the left, and Sidebar and Inspector are the icon
+            // buttons on either side of this menu; listing them again here
+            // said the same thing twice on one toolbar.
             Menu {
-                workspaceModeActions
-                Divider()
                 photoViewActions
                 Divider()
                 panelActions
             } label: {
                 Label(
-                    "More",
+                    "Photo and Panel Actions",
                     systemImage: "ellipsis.circle"
                 )
             }
-            .help("More workspace and photo actions")
-            .accessibilityLabel("More actions")
+            .help("Rotate, zoom, compare, and panel visibility")
+            .accessibilityLabel("Photo and panel actions")
             .frame(
                 minWidth:
                     RAWDeskTokens.Size.iconTarget,
@@ -323,20 +325,6 @@ struct MainToolbar: ToolbarContent {
     }
 
     @ViewBuilder
-    private var workspaceModeActions: some View {
-        Button("Library") {
-            showDestination(.library)
-        }
-        Button("Develop") {
-            showDestination(.develop)
-        }
-        .disabled(library.selectionID == nil)
-        Button("Map") {
-            showDestination(.map)
-        }
-    }
-
-    @ViewBuilder
     private var photoViewActions: some View {
         if destination.wrappedValue == .library {
             Button(
@@ -352,8 +340,8 @@ struct MainToolbar: ToolbarContent {
             )
             Button(
                 library.surveyState == nil
-                    ? "Survey Selected Photos"
-                    : "Finish Survey"
+                    ? "Survey Photos"
+                    : "Finish Surveying"
             ) {
                 library.toggleSurvey()
             }
@@ -363,7 +351,7 @@ struct MainToolbar: ToolbarContent {
             )
             Button(
                 library.referenceState == nil
-                    ? "Open Reference View"
+                    ? "Open in Reference View"
                     : "Finish Reference View"
             ) {
                 library.toggleReferenceView()
@@ -419,22 +407,10 @@ struct MainToolbar: ToolbarContent {
         .disabled(library.selectionID == nil)
     }
 
+    /// Sidebar and Inspector are omitted: both are permanent icon buttons on
+    /// this same toolbar. Only the panels without a toolbar button are here.
     @ViewBuilder
     private var panelActions: some View {
-        Button(
-            isSidebarVisible
-                ? "Hide Sidebar"
-                : "Show Sidebar"
-        ) {
-            isSidebarVisible.toggle()
-        }
-        Button(
-            isInspectorVisible
-                ? "Hide Inspector"
-                : "Show Inspector"
-        ) {
-            isInspectorVisible.toggle()
-        }
         if destination.wrappedValue == .develop {
             Button(
                 isFilmstripVisible

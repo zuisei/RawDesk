@@ -19,6 +19,23 @@ struct KeyboardHandler: NSViewRepresentable {
     var canToggleLoupe: Bool
     var onToggleLoupe: () -> Void
     var onShowDevelop: () -> Void
+    // Compare, Survey, Reference and Toggle Original are also View-menu
+    // commands. AppKit dispatches a main-menu key equivalent before the key
+    // window's first responder sees the keystroke, so their bare C, N, ⇧R and
+    // \ equivalents reach no text-field guard: typing a collection, keyword or
+    // person name is interrupted instead of typed. Routing the same keys
+    // through this monitor puts them behind `isEditingText` with the other
+    // bare photo shortcuts. The gates mirror each menu item's `disabled`
+    // condition; they default to false so the keys stay with the menu until
+    // the host view supplies them.
+    var canToggleCompare: Bool = false
+    var onToggleCompare: () -> Void = {}
+    var canToggleSurvey: Bool = false
+    var onToggleSurvey: () -> Void = {}
+    var canToggleReference: Bool = false
+    var onToggleReference: () -> Void = {}
+    var canToggleOriginal: Bool = false
+    var onToggleOriginal: () -> Void = {}
 
     func makeNSView(context: Context) -> NSView {
         let v = MonitorView()
@@ -42,7 +59,7 @@ struct KeyboardHandler: NSViewRepresentable {
                     // A SwiftUI sheet owns a different NSWindow from this
                     // representable's host view. Inspect the event/key window,
                     // not only the underlying library window, or bare photo
-                    // shortcuts such as P, U, F, X, and 0...9 will consume
+                    // shortcuts such as P, U, X, and 0...9 will consume
                     // characters typed into sheet text fields.
                     let eventWindow =
                         event.window
@@ -124,7 +141,9 @@ struct KeyboardHandler: NSViewRepresentable {
                                 mods.contains(.shift)
                             )
                             return nil
-                        case "f", "F": h.onFlag(); return nil
+                        // P / U / X are the whole pick vocabulary. F was a
+                        // second, differently behaving name for the same
+                        // state — a toggle that also cleared Rejected.
                         case "p", "P": h.onPickStatus(.picked); return nil
                         case "u", "U": h.onPickStatus(.unflagged); return nil
                         case "x", "X": h.onPickStatus(.rejected); return nil
@@ -142,6 +161,28 @@ struct KeyboardHandler: NSViewRepresentable {
                             return nil
                         case "d", "D":
                             h.onShowDevelop()
+                            return nil
+                        // Case matters here. The command/control/option early
+                        // return above leaves Shift as the only reachable
+                        // modifier, so "c" and "n" mean unshifted while "R"
+                        // means Shift-held — exactly what the menu published.
+                        // An unmet gate breaks out of the switch and returns
+                        // the event, leaving the key to whoever else wants it.
+                        case "c":
+                            guard h.canToggleCompare else { break }
+                            h.onToggleCompare()
+                            return nil
+                        case "n":
+                            guard h.canToggleSurvey else { break }
+                            h.onToggleSurvey()
+                            return nil
+                        case "R":
+                            guard h.canToggleReference else { break }
+                            h.onToggleReference()
+                            return nil
+                        case "\\":
+                            guard h.canToggleOriginal else { break }
+                            h.onToggleOriginal()
                             return nil
                         default: break
                         }

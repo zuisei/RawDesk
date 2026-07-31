@@ -609,6 +609,10 @@ struct RAWLibraryControlBar: View {
     @Binding var displayMode: LibraryDisplayMode
 
     var body: some View {
+        // Compare, Survey and Reference are reached from one menu at every
+        // width. As inline buttons they had to be abbreviated to fit, which is
+        // how the same three commands ended up with a second set of names.
+        // Selection and photo counts belong to the status bar under the grid.
         ViewThatFits(in: .horizontal) {
             HStack(spacing: RAWDeskTokens.Spacing.small) {
                 displayPicker
@@ -619,22 +623,12 @@ struct RAWLibraryControlBar: View {
                 // Here it was the first control `ViewThatFits` dropped, so it
                 // disappeared into a menu at exactly the window sizes where
                 // the grid is most cramped.
-                Spacer(minLength: 0)
-                modeButtons
-                selectionSummary
-            }
-            HStack(spacing: RAWDeskTokens.Spacing.small) {
-                displayPicker
-                sortMenu
-                filterMenu
-                activeFilterChip
                 Menu("View Actions", systemImage: "ellipsis.circle") {
                     modeMenu
                     Divider()
                     thumbnailSizeMenu
                 }
                 Spacer(minLength: 0)
-                selectionSummary
             }
             HStack(spacing: RAWDeskTokens.Spacing.small) {
                 displayPicker
@@ -642,7 +636,6 @@ struct RAWLibraryControlBar: View {
                 activeFilterChip
                 compactActionMenu
                 Spacer(minLength: 0)
-                selectionSummary
             }
         }
         .padding(.horizontal, RAWDeskTokens.Spacing.small)
@@ -806,7 +799,7 @@ struct RAWLibraryControlBar: View {
         .help(
             "Sort, thumbnail size, and photo view actions"
         )
-        .accessibilityLabel("More library controls")
+        .accessibilityLabel("View Actions")
     }
 
     @ViewBuilder
@@ -852,53 +845,18 @@ struct RAWLibraryControlBar: View {
         }
     }
 
-    private var modeButtons: some View {
-        HStack(spacing: RAWDeskTokens.Spacing.xSmall) {
-            Button("Compare") {
-                library.toggleCompare()
-            }
-            .disabled(!library.canStartCompare)
-            Button("Survey") {
-                library.toggleSurvey()
-            }
-            .disabled(!library.canStartSurvey)
-            Button("Reference") {
-                library.toggleReferenceView()
-            }
-            .disabled(!library.canStartReference)
-        }
-        .buttonStyle(.borderless)
-        .controlSize(.small)
-    }
-
-    @ViewBuilder
-    private var selectionSummary: some View {
-        if library.selectedIDs.count > 1 {
-            RAWStateBadge(
-                text: "\(library.selectedIDs.count) selected",
-                systemImage: "checkmark.circle",
-                tone: .accent
-            )
-        } else if library.selectionID != nil {
-            Text("1 selected")
-                .font(RAWDeskTokens.Typography.metadata)
-                .foregroundStyle(
-                    RAWDeskTokens.ColorToken.textSecondary
-                )
-        }
-    }
-
+    // One name per command, matching the menu bar and the toolbar overflow.
     @ViewBuilder
     private var modeMenu: some View {
         Button("Compare Photos") {
             library.toggleCompare()
         }
         .disabled(!library.canStartCompare)
-        Button("Survey Selected Photos") {
+        Button("Survey Photos") {
             library.toggleSurvey()
         }
         .disabled(!library.canStartSurvey)
-        Button("Open Reference View") {
+        Button("Open in Reference View") {
             library.toggleReferenceView()
         }
         .disabled(!library.canStartReference)
@@ -964,8 +922,10 @@ struct RAWLibraryStatusBar: View {
                     + (library.filtered.count == 1 ? "photo" : "photos")
             )
             if library.filter.isActive {
+                // "Filtered" is the word the filter menu already uses for its
+                // own active state, so the two do not read as two states.
                 RAWStateBadge(
-                    text: "Filter applied",
+                    text: "Filtered",
                     systemImage: "line.3.horizontal.decrease",
                     tone: .neutral
                 )
@@ -1071,17 +1031,25 @@ struct RAWLibraryInspectorView: View {
         _ asset: PhotoAsset
     ) -> some View {
         ScrollView {
-            VStack(
-                alignment: .leading,
-                spacing: RAWDeskTokens.Spacing.large
-            ) {
-                identityHeader(asset)
+            // `RAWInspectorSection` carries its own inset, header row, panel
+            // fill and full-width hairline. Insetting it again made the same
+            // component tile edge-to-edge in Develop and float 12pt in here,
+            // with hairlines that stopped short of the panel and so separated
+            // nothing. Only the pieces that are not sections are inset.
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(
+                    alignment: .leading,
+                    spacing: RAWDeskTokens.Spacing.large
+                ) {
+                    identityHeader(asset)
 
-                // Always visible: culling is the reason this panel exists.
-                RAWReviewControls(
-                    library: library,
-                    asset: asset
-                )
+                    // Always visible: culling is the reason this panel exists.
+                    RAWReviewControls(
+                        library: library,
+                        asset: asset
+                    )
+                }
+                .padding(RAWDeskTokens.Spacing.medium)
 
                 // Option-click a header for solo mode, the same gesture the
                 // Develop inspector already uses.
@@ -1113,8 +1081,8 @@ struct RAWLibraryInspectorView: View {
                 }
 
                 actions(asset)
+                    .padding(RAWDeskTokens.Spacing.medium)
             }
-            .padding(RAWDeskTokens.Spacing.medium)
             .frame(
                 maxWidth: .infinity,
                 alignment: .leading
@@ -1319,6 +1287,9 @@ struct RAWDevelopWorkspaceView: View {
 
     private var canvas: some View {
         VStack(spacing: 0) {
+            // Only a tool puts a bar above the photograph. The bar that used to
+            // sit here permanently held one button and a badge, both of which
+            // now live in the status bar under the image.
             if let activeTool {
                 RAWDevelopToolModeBar(
                     tool: activeTool,
@@ -1326,16 +1297,16 @@ struct RAWDevelopWorkspaceView: View {
                     onDone: onFinishTool,
                     onCancel: onCancelTool
                 )
-            } else {
-                RAWDevelopCanvasControlBar(viewer: viewer)
             }
 
             Group {
                 if library.isScanning, library.assets.isEmpty {
-                    VStack(spacing: RAWDeskTokens.Spacing.medium) {
-                        ProgressView()
-                        Text("Loading photos…")
-                    }
+                    RAWEmptyState(
+                        title: "Loading Photos",
+                        indicator: .progress,
+                        message:
+                            "RAWDesk is reading the folder locally."
+                    )
                 } else if library.selectedAsset == nil {
                     RAWEmptyState(
                         title: "Select a Photo",
@@ -1467,55 +1438,6 @@ struct RAWDevelopToolModeBar: View {
     }
 }
 
-struct RAWDevelopCanvasControlBar: View {
-    @ObservedObject var viewer: PhotoViewerViewModel
-
-    var body: some View {
-        HStack(spacing: RAWDeskTokens.Spacing.small) {
-            Button {
-                viewer.toggleOriginal()
-            } label: {
-                Label(
-                    viewer.isShowingOriginal
-                        ? "Show Edit"
-                        : "Before / After",
-                    systemImage:
-                        viewer.isShowingOriginal
-                        ? "rectangle.on.rectangle"
-                        : "eye"
-                )
-            }
-            .help("Hold or press backslash to compare with the original")
-
-            Spacer(minLength: 0)
-
-            if viewer.softProofSettings.isEnabled {
-                RAWStateBadge(
-                    text:
-                        "Soft Proof: "
-                        + viewer.softProofSettings.profile.shortName
-                        + " · "
-                        + viewer.softProofSettings
-                            .renderingIntent.name,
-                    systemImage: "printer",
-                    tone: .accent
-                )
-            }
-        }
-        .buttonStyle(.borderless)
-        .controlSize(.small)
-        .padding(.horizontal, RAWDeskTokens.Spacing.medium)
-        .frame(height: RAWDeskTokens.Size.workspaceControlBar)
-        .background(RAWDeskTokens.ColorToken.chrome)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(RAWDeskTokens.ColorToken.divider)
-                .frame(height: 1)
-        }
-    }
-
-}
-
 struct RAWPhotoCanvasStatusBar: View {
     @ObservedObject var viewer: PhotoViewerViewModel
     let asset: PhotoAsset?
@@ -1536,18 +1458,47 @@ struct RAWPhotoCanvasStatusBar: View {
                 .frame(width: 46, alignment: .leading)
             }
 
-            Spacer(minLength: 0)
-
-            if viewer.isShowingOriginal {
-                RAWStateBadge(
-                    text: "Original",
-                    systemImage: "eye",
-                    tone: .accent
+            // One noun for one action. This was "Before / After" until pressed
+            // and "Show Edit" after, which named a mode and then an action, and
+            // neither matched the "Original" badge it produced.
+            Button {
+                viewer.toggleOriginal()
+            } label: {
+                // The title never changes; only the state does. The symbol
+                // fills as well as the colour changing, because a borderless
+                // button may repaint its label with the control tint.
+                Label(
+                    "Original",
+                    systemImage:
+                        viewer.isShowingOriginal
+                        ? "eye.fill"
+                        : "eye"
+                )
+                .foregroundStyle(
+                    viewer.isShowingOriginal
+                        ? RAWDeskTokens.ColorToken.selection
+                        : RAWDeskTokens.ColorToken
+                            .textSecondary
                 )
             }
+            .help("Hold ⧵ to compare with the original")
+            .accessibilityAddTraits(
+                viewer.isShowingOriginal
+                    ? [.isButton, .isSelected]
+                    : [.isButton]
+            )
+
+            Spacer(minLength: 0)
+
             if viewer.softProofSettings.isEnabled {
+                // Profile and intent, not just the word "Proof": this is the
+                // only permanent readout of what the proof is simulating.
                 RAWStateBadge(
-                    text: "Proof",
+                    text:
+                        viewer.softProofSettings.profile.shortName
+                        + " · "
+                        + viewer.softProofSettings
+                            .renderingIntent.name,
                     systemImage: "printer",
                     tone: .accent
                 )

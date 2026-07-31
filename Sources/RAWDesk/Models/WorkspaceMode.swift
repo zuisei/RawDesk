@@ -71,7 +71,9 @@ public enum DevelopCanvasTool:
     public var name: String {
         switch self {
         case .crop: return "Crop"
-        case .remove: return "Heal / Clone"
+        // "Remove" matches the inspector section header and the persisted
+        // section key; the tool used to answer to four different names.
+        case .remove: return "Remove"
         case .mask: return "Mask"
         case .guidedUpright: return "Guided Upright"
         case .pointColor: return "Point Color"
@@ -83,10 +85,12 @@ public enum DevelopCanvasTool:
     public var shortName: String {
         switch self {
         case .crop: return "Crop"
-        case .remove: return "Heal"
+        case .remove: return "Remove"
         case .mask: return "Mask"
         case .guidedUpright: return "Upright"
-        case .pointColor: return "Color"
+        // "Point", not "Color": a tool caption must not repeat the name of an
+        // adjustment group sitting a few rows below it in the same panel.
+        case .pointColor: return "Point"
         }
     }
 
